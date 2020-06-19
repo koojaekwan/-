@@ -1,0 +1,171 @@
+---
+title: "어떤 연구가 좋을까?"
+author: "Jae Kwan Koo"
+output: slidy_presentation
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T)
+```
+
+## Contents
+
+- TCGA in R
+    - Install
+    - Example - clinic data
+    - Download data from GDC(Genomic Data Commons Data Portal)  
+
+- 관심이 가는 주제  
+
+
+## TCGA in R  
+
+**TCGA(The Cancer Genome Atlas)**  
+
+* The Cancer Genome Atlas (TCGA)는 미국 국립보건원(National Institutes of Health, NIH)에서 진행한 프로젝트  
+
+* 여러 가지 암종에 대한 유전체/전사체/단백체 데이터를 수집 및 분석하여 암을 분자 수준에서 이해  
+
+* 게놈 염기서열 분석과 생물정보학을 이용해 암의 원인이 되는 유전자 돌연변이를 분류하기 위해 2005년부터 시작된 프로젝트. 대부분의 유전체학 연구보다 많은 500개의 환자 샘플을 계획했고, 환자 샘플을 분석하기 위해 다른 기술을 사용했다.  
+
+## Install  
+
+```{r message=F,warning=FALSE}
+# devtools::install_github("halpo/purrrogress")
+# devtools::install_github("waldronlab/MultiAssayExperiment")
+# devtools::install_github("PoisonAlien/maftools")
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+if (!requireNamespace("ComplexHeatmap", quietly = TRUE))
+  BiocManager::install("ComplexHeatmap") # from bioconductor
+
+if (!requireNamespace("TCGAbiolinks", quietly = TRUE))
+  BiocManager::install("BioinformaticsFMRP/TCGAbiolinks") # from github
+
+library(TCGAbiolinks)
+library(MultiAssayExperiment)
+library(maftools)
+library(tidyverse)
+library(ComplexHeatmap)
+```  
+
+
+## Example - clinic data  
+
+```{r}
+clinical <- GDCquery_clinic("TCGA-COAD")
+
+DT::datatable(clinical, 
+              options = list(pageLength = 5, autoWidth = TRUE))
+```  
+
+## 
+
+```{r echo=FALSE, fig.width=18, fig.height=10, fig.align='center'}
+null_count <- apply(clinical, 2, function(x) sum(is.na(x)))
+
+data <- data.frame(col_names = null_count %>% names, count = null_count)
+rownames(data)  <- NULL
+
+
+data %>% ggplot(aes(x = col_names, y = count)) + 
+  geom_bar(stat="identity") + 
+  coord_flip() + 
+  xlab("") + 
+  ylab("") + 
+  theme_bw()
+```  
+
+## Download data from GDC(Genomic Data Commons Data Portal)  
+
+```{r eval=F}
+# 1. Search data in GDC
+query <- GDCquery(project="TCGA-LIHC",    # Liver and intrahepatic bile ducts(간, 간내 담관)
+                  data.category="Transcriptome Profiling",
+                  data.type="Gene Expression Quantification",
+                  workflow.type="HTSeq - Counts")
+
+
+# 2. Download from GDC repository
+GDCdownload(query)
+
+
+# 3. Make R object from the downloaded data
+data <- GDCprepare(query)
+
+# 4. Extract Gene expression matrix
+library(SummarizedExperiment)
+
+eset <- assay(data)
+
+# 5. Save the matrix as .csv format
+fwrite(x = eset, file = "LIHC.csv") # setwd() location
+```  
+
+##
+
+```{r eval=T}
+TCGAbiolinks:::getGDCprojects()$project_id    # possible project name
+
+TCGAbiolinks:::getProjectSummary("TCGA-LIHC")
+```  
+
+
+## [관심이 가는 주제](https://ko.ovalengineering.com/quantitative-mri-radiomics-prediction-molecular-classifications-breast-cancer-subtypes-tcgatcia-data-870194#menu-8)  
+
+* 유방암은 북미 여성에서 가장 흔히 진단되는 암으로 여성의 암 사망 원인 중 두 번째로 많이 발생  
+
+* 수용체 상태에 따라 유방암은 여러 가지 아형으로 분류 될 수 있음.  
+
+<br>
+<br>
+
+
+[TCGA Cancers Selected for Study](https://www.cancer.gov/about-nci/organization/ccg/research/structural-genomics/tcga/studied-cancers)  
+
+What have TCGA researchers learned about breast cancer?  
+
+* The cancer can be categorized into four molecular subtypes: `HER2-enriched`, `Luminal A`, `Luminal B`, and `Basal-like`.
+Each subtype is associated with a unique panel of mutated genes.  
+
+* Basal-like(기저형 아형) subtype shares many genetic features with high-grade serous ovarian cancer(난소 암), suggesting that the cancers have a common molecular origin and may share therapeutic opportunities, such as:  
+    * A drug that inhibits blood vessel growth, cutting off the blood supply to the tumor.  
+
+    * Bioreductive drugs, which are inactive drugs that become toxic to cancer cells under low oxygen conditions.
+
+
+
+## Refer  
+
+* TCGA  
+
+    * https://bioconductor.org/packages/release/bioc/html/TCGAbiolinks.html  
+    
+    * [National cancer institute GDC Data Portal](https://portal.gdc.cancer.gov/projects)  
+
+    * https://m.blog.naver.com/PostView.nhn?blogId=cjh226&logNo=221320056674&proxyReferer=https:%2F%2Fwww.google.com%2F  
+
+    * https://rpubs.com/tiagochst/TCGAworkshop  
+    
+    * [TCGA Barcode](http://blog.naver.com/PostView.nhn?blogId=cjh226&logNo=220992617831&categoryNo=18&parentCategoryNo=0&viewDate=&currentPage=1&postListTopCurrentPage=1&from=postView)  
+    
+    * [TCGA의 간단한 설명을 한 블로그](https://medium.com/biosupermarket/%EB%8D%B0%EC%9D%B4%ED%84%B0-%EB%82%98%EB%93%A4%EC%9D%B4-tcga-target-gtex-1-tcga-target-gtex-32b3a78de709)  
+    
+    * [GDC query](https://rdrr.io/bioc/TCGAbiolinks/man/GDCquery.html)  
+    
+
+
+
+
+
+
+
+
+
+
+
+
