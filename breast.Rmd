@@ -1,0 +1,331 @@
+---
+title: "understanding of breast cancer"
+author: "Jae Kwan Koo"
+output:
+  html_document:
+    fig_height: 6
+    fig_width: 10
+    highlight: textmate
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+  word_document: default
+  github_document:
+    toc: yes
+    toc_depth: 4
+---  
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval=F)
+```  
+
+
+# comprehension
+
+## Breast Cancer  
+
+* `유방암`은 전 세계적으로 여자에게 가장 흔히 나타나는 암(물론 남자도 발병가능)  
+* 서부 유럽사람들은 유방암 발생률이 가장 높고 20~30년 전 부터 발생률은 서서히 증가하는 추세  
+* `50~70대 여성`에게 유방암은 발생률이 가장 높음  
+* 더 좋고 효과적인 screening programs, 치료법의 향상 -> 생존률 상승  
+
+<br>
+<br>
+
+### Two main types of breast cancer  
+
+유방암은 유방의 조직에서 시작  
+
+* **Ductal carcinoma**  
+starts in the tubes (ducts) that move milk from the breast to the nipple. Most breast cancers are of this type.  
+
+* **Lobular carcinoma**  
+starts in the parts of the breast, called lobules, which produce milk.  
+
+
+<img src="https://www.bebig.com/fileadmin/_processed_/csm_5000a57244_f826e1962d.jpg" width="400" height="300" />
+
+
+※ Ductal :(인체나 식물의)도관  
+※ Lobular : 소엽의,뇌엽  
+
+TCGA focused mainly on two types of invasive breast cancer: ductal carcinoma(도관암) and lobular carcinoma(뇌엽암).  
+
+Invasive ductal carcinoma 는 가장 흔한 유방암 type이다.  
+It comprises about 65–85% of all breast cancer and develops in the milk ducts of the breast.  
+
+About 10% of all cases of advanced breast cancer 2 are invasive lobular breast carcinoma.  
+This cancer develops in the breast milk-producing lobules or glands.  
+
+<br>
+
+[breast cancer 설명 출처](https://www.bebig.com/home/patients/breast_cancer/)  
+[TCGA's Study of Breast Ductal Carcinoma](https://www.cancer.gov/about-nci/organization/ccg/research/structural-genomics/tcga/studied-cancers/breast-ductal)  
+
+
+## Paper {.tabset .tabset-fade .tabset-pills}  
+
+[Classifying Breast Cancer Subtypes Using Multiple Kernel Learning Based on Omics Data](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6471546/#B33-genes-10-00200)  
+
+**Omics** : 전체를 뜻하는 말인 `옴(-ome)`과 학문을 뜻하는 접미사 `익스(-ics)`가 결합된 말로, 어떤 특정 학문 분야를 말하기보다는 개별 유전자(gene), 전사물(transcript), 단백질(protein), 대사물(metabolite) 연구에 대비되는 **총체적인 개념의 데이터 세트를 바탕으로 하는 생물학 분야**  
+
+### Abstract  
+
+유방암 아형의 본질적인 차이를 탐구하는 것은 매우 중요  
+본질적인 차이는 임상 진단 및 치료 계획의 지정과 밀접하게 관련  
+
+생물학적, 의학적 데이터세트가 축적되면서 다양한 측면에서 볼 수 있는 여러 가지 Omics data가 존재  
+이런 데이터를 결합하면 예측의 정확성을 향상시킬 수 있음  
+
+**에스트로겐 수용체(ER)**, **프로게스테론 수용체(PR)**, **사람 표피성장인자 수용체2(HER2)**를 사용하여 유방암 아형을 정의  
+
+TCGA로부터  `mRNA data`, `methylation data` and `copy number variation (CNV) data`를 수집해 유방암 아형을 분류  
+
+다중 커널 학습(MKL)로 3개의 Omics data를 사용한 결과는 여러 개의 커널에 단일 Omics data를 사용한 결과보다 낫다.   
+실험에서 제안된 방법은 다른 최첨단 방법보다 뛰어나며 풍부한 생물학적 해석을 가지고 있다.  
+
+
+### Introduction  
+
+더욱이 유방암을 앓고 있는 젊은 여성은 삼중 음성이나 HER2 양성 유방암과 같이 보다 공격적인 아형을 갖게 될 가능성이 높으며, 고도 단계로 식별될 가능성이 더 높다  
+
+종양 분자 타이핑의 개념은 1999년 국립 암 연구소에 의해 제안  
+
+* 미국 스탠퍼드대 페루 외 연구진은 2000년 유방암의 분자분류를 처음 보고  
+    * basal-like subtype, human epidermal growth subtype and normal breast-like subtype 등 4가지 1차 아형이 있다고 결론  
+
+* 2003년, Sorlie 외는 추가로 Luminal 하위 유형을 Luminal A와 Luminal B로 나눔눔  
+
+유방암의 아형을 규정하는 다른 분류방법이 많지만, 여전히 가장 널리 알려진 방법은 페루와 설리가 제안한 방법  
+
+<br>
+<br>
+
+![TNBC: 삼중음성 유방암; HER2: 사람 표피증식인자수용체 2](D:/Jae Kwan/4학년여름/연구생/연구주제/cancer_class.jpg)  
+
+<br>
+
+* The Unclear subtypes was the patients which have missing data in ER, PR or HER2  
+
+* Luminal A is the most common subtype of breast cancer in clinic, and it is usually an early form of breast cancer.  
+    * the 5-year local recurrence rate of this subtype is significantly lower than other subtypes  
+    
+    
+* the expression of hormone in patients with Luminal B is lower than Luminal A, while the expression of proliferation markers and histologic grade are higher than Luminal A  
+* Probably 25% of breast cancer are classified as HER2-positive, and this subtype has always been related to poor prognosis.  
+
+* Basle-like/TNBC is currently the most studied subtype, is easy to deteriorate and metastasize, is highly sensitive to chemotherapy  
+
+<br>
+<br>
+
+많은 유방암 subtype 분류에 대한 연구들이 있다.  
+hierarchical clustering에 의해 gene expression patterns의 차이에 기초해 유방암 유형을 분리  
+
+<br>
+
+SVM : 지도학습모형, 데이터 특징을 선형적으로 분리할 수 있는 더 높은 차원에 매핑한 커널 함수를 통해 비선형 분리 문제를 효과적으로 해결  
+
+클래식한 커널함수는 linear kernel, polynomial kernel, gaussian kernel이 존재  
+이 후, Multiple kernel learining(MKL)을 등장하여 svm의 분류 정확도를 향상시킴  
+
+<br>
+
+**우리는 SMO-MKL을 사용할 것(이 방법은 MKL을 사용하는 것보다 더 나을 결과를 도출)**  
+
+* SMO-MKL is an improved supervised method based on linear MKL framework fusing heterogeneous omics data of breast cancer from the Cancer Genome Atlas (TCGA)  
+
+#### Workflow  
+
+1. mRNA, DNA methylation, Copy Number Variation(CNV)데이터를 수집하고 이러한 Omics 데이터와 subtypes(아형) 정보를 동시에 가진 환자들만 선택  
+
+2. 이 데이터들을 삭제하고 정규화. Omics 데이터에서 쓸모없느 문제를 해결하기 위해 각각 omics 데이터에 기초해 gene feature selection방법을 사용  
+
+3. 그 다음의 모형의 인풋으로 omics 데이터를 사용해 커널을 생성. 그리고 SMO-MKL 모형을 만들어 예측의 분류결과를 얻음  
+
+![](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6471546/bin/genes-10-00200-g001.jpg){width=600, height=900}
+
+### Method  
+
+
+mRNA, DNA methylation, Copy number variation 데이터 사용 : 환자 샘플에서 동시에 측정  
+
+* the RNA sequencing level 3 data as mRNA data  
+* DNA Methylation 450k level 3 data as DNA methylation data  
+* the Affymetrix SNP 6.0 array data with GRCH 38 (hg38) genome data as CNV data.  
+
+clinical data로부터 ER, PR and Her2의 정보 사용하여 환자의 암 subtype을 확인  
+
+<br>
+
+유방암 별개의 환자 샘플 606명이 포함된 데이터셋은 5개의 subtypes으로 나뉨  
+
+
+![TNBC: 삼중음성 유방암; HER2: 사람 표피증식인자수용체 2](D:/Jae Kwan/4학년여름/연구생/연구주제/class_num.jpg)  
+
+### Result  
+
+heatmap을 통해 살펴보니 3개의 데이터 중에서는 mRNA데이터에서 유방암 subtypes들이 가장 뚜렷히 분류가 되었다.  
+
+random forest, Neural network보다 SMO-MKL의 성능이 더 좋았다.  
+
+
+## Different Gene Expression {.tabset .tabset-fade .tabset-pills}
+
+### Abstract  
+
+Bioconductor packages를 이용하여 RNA-seq differential gene expression을 살펴본다.  
+gene-level의 count dataset을 이용한다.  
+
+### Introduction  
+
+Bioconductor packages는 많은 것을 할 수 있다.  
+DESeq2패키지로 분석이 가능  
+
+![](D:/Jae Kwan/4학년여름/연구생/연구주제/heatmap.jpg){width=450, height=450}  
+
+![](D:/Jae Kwan/4학년여름/연구생/연구주제/MAplot.jpg){width=450, height=450}
+
+![](D:/Jae Kwan/4학년여름/연구생/연구주제/heatmap_gene.jpg){width=450, height=450}
+
+
+# PRACTICE {.tabset .tabset-fade .tabset-pills}
+
+## Library  
+
+```{r library, message=FALSE, warning=FALSE}
+# manipulation
+library(tidyverse)
+library(data.table)
+library(plyr)
+library(stringr)
+
+library(DT)
+
+
+# bio
+
+
+# BiocManager::install("DESeq2")
+# BiocManager::install("DEGseq")
+library(DESeq2)
+library(DEGseq)
+library(TCGAbiolinks)
+```  
+
+```{r}
+query <- GDCquery(project="TCGA-BRCA",
+                  data.category="Transcriptome Profiling",
+                  data.type="Gene Expression Quantification",
+                  workflow.type="HTSeq - Counts")
+
+
+# 2. Download from GDC repository
+# GDCdownload(query)
+
+
+# 3. Make R object from the downloaded data
+# data <- GDCprepare(query)
+
+# 4. Extract Gene expression matrix
+library(SummarizedExperiment)
+
+eset <- assay(data)
+
+
+
+
+query <- GDCquery(project = "TCGA-BRCA", 
+                  data.category = "Clinical",
+                  data.type = "Clinical Supplement", 
+                  data.format = "BCR Biotab")
+
+# GDCdownload(query)
+clinical.BCRtab.all <- GDCprepare(query)
+
+clinical.BCRtab.all$clinical_patient_brca %>% data.frame %>% dim
+
+clinical <- GDCquery_clinic(project = "TCGA-BRCA", type = "clinical")
+clinical %>% names
+
+a <- lapply(clinical, function(x) unique(x))
+
+a$ethnicity
+
+a <- lapply(clinical.BCRtab.all$clinical_patient_brca, unique)
+
+a$her2_status_by_ihc
+
+```  
+
+|Function | Description|
+|:---: | :-------:|
+|TCGAquery_clinic() | Get the clinical information|
+|TCGAquery() | TCGA open-access data providing also latest version of the files.|
+|dataBRCA() | TCGA data matrix BRCA|
+
+
+[Function Description](https://www.rdocumentation.org/packages/TCGAbiolinks/versions/1.2.5)  
+
+```{r}
+koo <- eset %>% data.frame
+
+# fwrite(x = eset,file = "eset.csv", sep=",")
+# fwrite(x = koo,file = "koo.csv",sep=",")
+```  
+
+```{r}
+# str_locate(dataBRCA %>% names, "\\d\\dA")
+
+# str_sub(dataBRCA %>% names,start = 14, end=16)
+index <- str_sub(dataBRCA %>% names,start = 14, end=16)=="01A"
+
+
+cancer <- dataBRCA[,index]
+normal <- dataBRCA[,!index]
+```  
+
+```{r}
+# str_sub(koo %>% names,start = 14, end=16)
+cancer_index <- str_sub(koo %>% names,start = 14, end=15)=="01"
+normal_index <- str_sub(koo %>% names,start = 14, end=15)=="11"
+
+cancer <- koo[,cancer_index]
+normal <- koo[,normal_index]
+```
+
+## Gene Expression Analysis  
+
+limma, DEseq 또는 DESeq2패키지로 유전자 발현에 대한 차이를 분석할 수 있다.  
+
+
+```{r}
+DEGexp(geneExpMatrix1 = normal, geneCol1 = 1, groupLabel1 = "Normal",
+       geneExpMatrix2 = cancer, geneCol2=1, groupLabel2 = "Cancer",
+       method="MARS", output='output')
+```  
+
+
+```{r}
+output <- fread("./output/output_score.txt")
+
+head(output)
+```
+
+
+
+
+
+## Refer  
+
+* [TCGAbiolinks 대략적인 설명 블로그](http://www.incodom.kr/TCGAbiolinks#h_04b78a38c44c25698b471e7ea22434eb)  
+
+* [Broad Institute GDAC Firehose](https://m.blog.naver.com/PostView.nhn?blogId=cjh226&logNo=220868113892&proxyReferer=https:%2F%2Fwww.google.com%2F)  
+  
+* [TCGA Barcode 의미](http://blog.naver.com/PostView.nhn?blogId=cjh226&logNo=220992617831&parentCategoryNo=&categoryNo=18&viewDate=&isShowPopularPosts=false&from=postView)  
+
+* [DEG 설명 블로그](https://sosal.kr/848)  
+
+
+
+
