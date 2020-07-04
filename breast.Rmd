@@ -188,6 +188,19 @@ DESeq2패키지로 분석이 가능
 
 ![](D:/Jae Kwan/4학년여름/연구생/연구주제/heatmap_gene.jpg){width=450, height=450}
 
+##
+
+**content below tabbed region**
+
+## 그래서?  
+
+mRNA데이터를 통해 유방암 subtype들의 different expression gene을 분석  
+
+tumor, normal을 분류하는 모형을 구축함에 있어서 DEG를 통해 발현적으로 유의한 gene들만 선택하는 등 feature selection에 이용할 수도 있을 것  
+
+단일적으로 tumor, normal에 대해 QC이 후, DEG를 수행하고 해석하는 것도 나쁘지 않아보인다.  
+
+
 
 # PRACTICE {.tabset .tabset-fade .tabset-pills}
 
