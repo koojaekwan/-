@@ -16,7 +16,7 @@ output:
 ---  
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, eval=F)
+knitr::opts_chunk$set(echo = TRUE, eval=T)
 ```  
 
 
@@ -61,6 +61,8 @@ This cancer develops in the breast milk-producing lobules or glands.
 
 [breast cancer 설명 출처](https://www.bebig.com/home/patients/breast_cancer/)  
 [TCGA's Study of Breast Ductal Carcinoma](https://www.cancer.gov/about-nci/organization/ccg/research/structural-genomics/tcga/studied-cancers/breast-ductal)  
+
+# 생각해 볼 내용  
 
 
 ## Paper {.tabset .tabset-fade .tabset-pills}  
@@ -192,14 +194,24 @@ DESeq2패키지로 분석이 가능
 
 **content below tabbed region**
 
-## 그래서?  
+## 생각한 조합  
 
-mRNA데이터를 통해 유방암 subtype들의 different expression gene을 분석  
+1. mRNA데이터를 통해 유방암 subtype들의 different expression gene을 분석  
+
+2. 단일적으로 tumor, normal에 대해 QC이 후, DEG를 수행하고 해석하는 것도 나쁘지 않아보인다.  
+
 
 tumor, normal을 분류하는 모형을 구축함에 있어서 DEG를 통해 발현적으로 유의한 gene들만 선택하는 등 feature selection에 이용할 수도 있을 것  
 
-단일적으로 tumor, normal에 대해 QC이 후, DEG를 수행하고 해석하는 것도 나쁘지 않아보인다.  
+------------  
 
+
+-> 유방암 subtype들의 쌍별로 DEG수행  
+subtype들의 분류?  
+
+
+<br>
+<br>
 
 
 # PRACTICE {.tabset .tabset-fade .tabset-pills}
@@ -207,7 +219,7 @@ tumor, normal을 분류하는 모형을 구축함에 있어서 DEG를 통해 발
 ## Library  
 
 ```{r library, message=FALSE, warning=FALSE}
-# manipulation
+# Data manipulation
 library(tidyverse)
 library(data.table)
 library(plyr)
@@ -216,17 +228,20 @@ library(stringr)
 library(DT)
 
 
-# bio
+# Bio
 
-
-# BiocManager::install("DESeq2")
+# BiocManager::install("DESeq2") 
 # BiocManager::install("DEGseq")
-library(DESeq2)
-library(DEGseq)
+
+library(BiocManager)
+library(DEGseq) # not use
+library(DESeq2) # I use this package
 library(TCGAbiolinks)
 ```  
 
-```{r}
+## Download the mRNA - count   
+
+```{r eval=FALSE}
 query <- GDCquery(project="TCGA-BRCA",
                   data.category="Transcriptome Profiling",
                   data.type="Gene Expression Quantification",
@@ -234,42 +249,18 @@ query <- GDCquery(project="TCGA-BRCA",
 
 
 # 2. Download from GDC repository
-# GDCdownload(query)
+GDCdownload(query)
 
 
 # 3. Make R object from the downloaded data
-# data <- GDCprepare(query)
+data <- GDCprepare(query)
 
 # 4. Extract Gene expression matrix
 library(SummarizedExperiment)
 
 eset <- assay(data)
-
-
-
-
-query <- GDCquery(project = "TCGA-BRCA", 
-                  data.category = "Clinical",
-                  data.type = "Clinical Supplement", 
-                  data.format = "BCR Biotab")
-
-# GDCdownload(query)
-clinical.BCRtab.all <- GDCprepare(query)
-
-clinical.BCRtab.all$clinical_patient_brca %>% data.frame %>% dim
-
-clinical <- GDCquery_clinic(project = "TCGA-BRCA", type = "clinical")
-clinical %>% names
-
-a <- lapply(clinical, function(x) unique(x))
-
-a$ethnicity
-
-a <- lapply(clinical.BCRtab.all$clinical_patient_brca, unique)
-
-a$her2_status_by_ihc
-
 ```  
+
 
 |Function | Description|
 |:---: | :-------:|
@@ -280,31 +271,200 @@ a$her2_status_by_ihc
 
 [Function Description](https://www.rdocumentation.org/packages/TCGAbiolinks/versions/1.2.5)  
 
-```{r}
-koo <- eset %>% data.frame
+## Import data  
 
-# fwrite(x = eset,file = "eset.csv", sep=",")
-# fwrite(x = koo,file = "koo.csv",sep=",")
+```{r}
+load("./BRCA객체.RData")
+normal <- eset %>% data.frame
+
+data <- fread("./data/brca_tcga_pub/data_clinical_sample.txt", data.table = F)
+
+patient <- 
+  data %>% 
+  select(`Patient Identifier`, `ER Status`, `PR Status`, `HER2 Status`) %>% 
+  filter(`ER Status` %in% c("Positive","Negative") &
+           `PR Status` %in% c("Positive","Negative") &
+           `HER2 Status` %in% c("Positive","Negative"))
 ```  
+
+### patient  
+
+```{r echo=FALSE}
+datatable(patient)
+```  
+
+### normal  
+
+```{r echo=FALSE}
+knitr::kable(normal[1:5,1:3])
+```  
+
+
+## Pre-Processing  
+
+### normal data  
+
+```{r}
+normal[1:3,1:3]
+
+
+normal <- normal[, str_sub(colnames(normal), 14,15) == "01"]
+
+colnames(normal) <- str_sub(colnames(normal),1,15)
+colnames(normal) <- gsub(pattern = ".",replacement = "-", 
+                         x = colnames(normal), fixed = T)
+
+
+normal %>% dim
+
+
+
+normal <- normal[, !duplicated(colnames(normal))]
+
+normal %>% dim
+```  
+
+```{r echo=F}
+knitr::kable(normal[1:3,1:3])
+```
+
+
+tumor인 사람만 고른 후, patient의 rownames이름 형식과 맞추기 위한 작업을 한다.  
+단 normal데이터에서 뒤를 날렸기 때문에 중복된 이름이 존재할 수 있다. 이 부분은 그냥 감안하고 중복된 사람은 없애기로 한다.  
+
+### patient data  
+
+```{r}
+colnames(patient) <- c("sample","ER","PR","HER2")
+
+
+patient <- 
+  patient %>% mutate(condition = case_when(
+    ER == "Positive" & PR == "Positive" & HER2 == "Negative" ~ "LuminalA",
+    ER == "Positive" & PR == "Positive" & HER2 == "Positive" ~ "LuminalB",
+    ER == "Negative" & PR == "Negative" & HER2 == "Negative" ~ "TNBC",
+    ER == "Negative" & PR == "Negative" & HER2 == "Positive" ~ "HER2"))
+
+patient <- patient %>% arrange(condition)
+patient <- patient %>% filter(!is.na(condition))
+
+patient %>% head
+
+patient <- column_to_rownames(patient, "sample")
+
+patient %>% head
+
+
+normal <- normal[, colnames(normal) %in% rownames(patient)]
+patient <- patient[rownames(patient) %in% colnames(normal), ]
+
+dim(normal); dim(patient)
+```  
+
+
+공통으로 들어간 환자로 일치시킨다.  
+
+
+### Match  
+
+```{r}
+match(rownames(patient), colnames(normal)) %>% is.na %>% sum
+
+
+match_idx <- match(colnames(normal), rownames(patient))
+meta_dat <- patient[match_idx,]
+
+meta_dat[1:3, ]
+normal[1:3, 1:3]
+
+all(rownames(meta_dat) == colnames(normal))
+
+meta_dat <- meta_dat %>% select(condition)
+
+meta_dat %>% head
+normal[1:3, 1:3]
+```
+
+두 데이터에서 서로 없는 부분이 존재하면 NA가 생기고 sum결과 연산이 되지 않아 NA가 발생할 것  
+여기서는 0으로 모두 공통으로 존재함  
+
+DESeq2모형에 탑재하기 위해서는 환자의 순서를 통일해준다.  
+
+<br>
+
+## Unsupervised clustering analyses  
+
+```{r eval=F}
+dds <- DESeqDataSetFromMatrix(countData = normal,
+                              colData = meta_dat,
+                              design = ~ condition)
+dds
+
+
+dds_fac <- estimateSizeFactors(dds)
+# sizeFactors(dds_fac)
+
+
+normalized_counts <- counts(dds_fac, normalized=TRUE)
+
+
+vsd <- vst(dds_fac, blind=TRUE)
+
+# Extract the vst matrix from the object
+vsd_mat <- assay(vsd)
+
+# Compute pairwise correlation values
+vsd_cor <- cor(vsd_mat)
+```  
+
+```{r echo=FALSE}
+load("D:/Jae Kwan/4학년여름/연구생/연구주제/pca까지객체.RData")
+```
+
+
+### Headmap  
+
+```{r}
+# Load pheatmap libraries
+library(pheatmap)
+
+# Plot heatmap
+pheatmap(vsd_cor, annotation = select(meta_dat, condition))
+```
+
+### PCA
+
+```{r}
+# Plot PCA
+plotPCA(vsd, intgroup="condition")
+```
+
+
+
+<br>
+<br>
+
+-----------------------------
+
 
 ```{r}
 # str_locate(dataBRCA %>% names, "\\d\\dA")
 
 # str_sub(dataBRCA %>% names,start = 14, end=16)
-index <- str_sub(dataBRCA %>% names,start = 14, end=16)=="01A"
-
-
-cancer <- dataBRCA[,index]
-normal <- dataBRCA[,!index]
+# index <- str_sub(dataBRCA %>% names,start = 14, end=16)=="01A"
+# 
+# 
+# cancer <- dataBRCA[,index]
+# normal <- dataBRCA[,!index]
 ```  
 
 ```{r}
 # str_sub(koo %>% names,start = 14, end=16)
-cancer_index <- str_sub(koo %>% names,start = 14, end=15)=="01"
-normal_index <- str_sub(koo %>% names,start = 14, end=15)=="11"
-
-cancer <- koo[,cancer_index]
-normal <- koo[,normal_index]
+# cancer_index <- str_sub(koo %>% names,start = 14, end=15)=="01"
+# normal_index <- str_sub(koo %>% names,start = 14, end=15)=="11"
+# 
+# cancer <- koo[,cancer_index]
+# normal <- koo[,normal_index]
 ```
 
 ## Gene Expression Analysis  
@@ -313,16 +473,16 @@ limma, DEseq 또는 DESeq2패키지로 유전자 발현에 대한 차이를 분�
 
 
 ```{r}
-DEGexp(geneExpMatrix1 = normal, geneCol1 = 1, groupLabel1 = "Normal",
-       geneExpMatrix2 = cancer, geneCol2=1, groupLabel2 = "Cancer",
-       method="MARS", output='output')
+# DEGexp(geneExpMatrix1 = normal, geneCol1 = 1, groupLabel1 = "Normal",
+#        geneExpMatrix2 = cancer, geneCol2=1, groupLabel2 = "Cancer",
+#        method="MARS", output='output')
 ```  
 
 
 ```{r}
-output <- fread("./output/output_score.txt")
-
-head(output)
+# output <- fread("./output/output_score.txt")
+# 
+# head(output)
 ```
 
 
