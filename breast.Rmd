@@ -6,7 +6,7 @@ output:
     fig_height: 6
     fig_width: 10
     highlight: textmate
-    toc: yes
+    toc: no
     toc_depth: 4
     toc_float: yes
   word_document: default
@@ -137,7 +137,7 @@ SVM : 지도학습모형, 데이터 특징을 선형적으로 분리할 수 있�
 
 * SMO-MKL is an improved supervised method based on linear MKL framework fusing heterogeneous omics data of breast cancer from the Cancer Genome Atlas (TCGA)  
 
-#### Workflow  
+<br>
 
 1. mRNA, DNA methylation, Copy Number Variation(CNV)데이터를 수집하고 이러한 Omics 데이터와 subtypes(아형) 정보를 동시에 가진 환자들만 선택  
 
@@ -214,7 +214,7 @@ subtype들의 분류?
 <br>
 
 
-# PRACTICE {.tabset .tabset-fade .tabset-pills}
+# Data import & Pre-processing {.tabset .tabset-fade .tabset-pills}
 
 ## Library  
 
@@ -237,7 +237,19 @@ library(BiocManager)
 library(DEGseq) # not use
 library(DESeq2) # I use this package
 library(TCGAbiolinks)
+
+
+# Visualization
+library(patchwork)
+library(ggthemes)
 ```  
+
+### function  
+
+```{r}
+`%notin%` <- Negate(`%in%`)
+```  
+
 
 ## Download the mRNA - count   
 
@@ -273,19 +285,83 @@ eset <- assay(data)
 
 ## Import data  
 
-```{r}
+```{r, echo=F}
 load("./BRCA객체.RData")
+```  
+
+```{r echo=FALSE}
+load("D:/Jae Kwan/4학년여름/연구생/연구주제/ens_naming까지객체.RData")
+```
+
+
+```{r eval=FALSE}
 normal <- eset %>% data.frame
 
-data <- fread("./data/brca_tcga_pub/data_clinical_sample.txt", data.table = F)
+data <- fread("./data/brca_tcga_pub/data_clinical_sample.txt",
+              data.table = F)
 
 patient <- 
   data %>% 
-  select(`Patient Identifier`, `ER Status`, `PR Status`, `HER2 Status`) %>% 
+  dplyr::select(`Patient Identifier`, `ER Status`, `PR Status`, `HER2 Status`) %>% 
   filter(`ER Status` %in% c("Positive","Negative") &
            `PR Status` %in% c("Positive","Negative") &
            `HER2 Status` %in% c("Positive","Negative"))
 ```  
+
+### naming match  
+
+```{r eval=FALSE}
+library(biomaRt)
+
+ensembl_ids <- unlist(lapply(rownames(normal), as.character), use.names=FALSE)
+
+
+ens <- useEnsembl(biomart="ensembl",
+                  dataset="hsapiens_gene_ensembl")
+
+
+genes.tbl <- getBM(attributes = c("ensembl_gene_id","hgnc_symbol"),
+                   filters = "ensembl_gene_id",
+                   values = ensembl_ids,
+                   mart = ens)
+
+
+# head(genes.tbl)
+# duplicated(genes.tbl$ensembl_gene_id) %>% sum
+# duplicated(genes.tbl$hgnc_symbol) %>% sum
+```  
+
+유전자에 이름을 부여하고 난 뒤에는 18893개가 중복되었다. 중복된 것들은 삭제하고 진행한다.  
+
+```{r}
+genes.tbl <-
+genes.tbl[!duplicated(genes.tbl$hgnc_symbol) &!duplicated(genes.tbl$ensembl_gene_id), ]
+
+genes.tbl %>% dim
+genes.tbl %>% head
+```  
+
+```{r}
+rownames(normal) %in% genes.tbl$ensembl_gene_id %>% sum
+
+normal <- normal[rownames(normal) %in% genes.tbl$ensembl_gene_id,]
+```  
+
+```{r}
+normal[1:5,1:2]
+```  
+
+```{r}
+all(rownames(normal)==genes.tbl$ensembl_gene_id)
+```  
+
+```{r}
+rownames(normal) <- genes.tbl$hgnc_symbol
+
+normal[1:5,1:2]
+```  
+
+
 
 ### patient  
 
@@ -300,13 +376,12 @@ knitr::kable(normal[1:5,1:3])
 ```  
 
 
-## Pre-Processing  
+## Pre-Process  
 
 ### normal data  
 
 ```{r}
 normal[1:3,1:3]
-
 
 normal <- normal[, str_sub(colnames(normal), 14,15) == "01"]
 
@@ -325,7 +400,7 @@ normal %>% dim
 ```  
 
 ```{r echo=F}
-knitr::kable(normal[1:3,1:3])
+knitr::kable(normal[1:5,1:2])
 ```
 
 
@@ -379,14 +454,12 @@ normal[1:3, 1:3]
 
 all(rownames(meta_dat) == colnames(normal))
 
-meta_dat <- meta_dat %>% select(condition)
+meta_dat <- meta_dat %>% dplyr::select(condition)
 
 meta_dat %>% head
 normal[1:3, 1:3]
 ```
 
-두 데이터에서 서로 없는 부분이 존재하면 NA가 생기고 sum결과 연산이 되지 않아 NA가 발생할 것  
-여기서는 0으로 모두 공통으로 존재함  
 
 DESeq2모형에 탑재하기 위해서는 환자의 순서를 통일해준다.  
 
@@ -405,10 +478,33 @@ map_dbl(meta_dat, ~sum(is.na(.x)))
 map_dbl(normal, ~sum(is.na(.x))) %>% sum
 ```  
 
+두 데이터에서 서로 없는 부분이 존재하면 NA가 생기고 sum결과 연산이 되지 않아 NA가 발생할 것  
+여기서는 0으로 모두 공통으로 존재함  
 
-<br>
 
-## Unsupervised clustering analyses  
+
+<br>  
+
+
+```{r}
+# arrange_index <- 
+# meta_dat %>%rownames_to_column(var = "gene") %>% 
+#   arrange(condition) %>% 
+#   column_to_rownames(var = "gene") %>% 
+#   rownames %>% 
+#   match(colnames(normal))
+# 
+# meta_dat <- 
+# meta_dat %>%rownames_to_column(var = "gene") %>% 
+#   arrange(condition) %>% 
+#   column_to_rownames(var = "gene") 
+# 
+# normal <- normal[,arrange_index]
+# all(rownames(meta_dat)==colnames(normal))
+```
+
+
+# Unsupervised learning  
 
 ```{r eval=F}
 dds <- DESeqDataSetFromMatrix(countData = normal,
@@ -422,7 +518,7 @@ dds_fac <- estimateSizeFactors(dds)
 
 
 normalized_counts <- counts(dds_fac, normalized=TRUE)
-
+# View(normalized_counts)
 
 vsd <- vst(dds_fac, blind=TRUE)
 
@@ -438,17 +534,20 @@ load("D:/Jae Kwan/4학년여름/연구생/연구주제/pca까지객체.RData")
 ```
 
 
-### Headmap  
+## Headmap  
 
 ```{r}
 # Load pheatmap libraries
 library(pheatmap)
 
 # Plot heatmap
-pheatmap(vsd_cor, annotation = select(meta_dat, condition))
+pheatmap(vsd_cor,
+         cluster_rows = T,
+         show_rownames = F,
+         annotation = dplyr::select(meta_dat, condition))
 ```
 
-### PCA
+## PCA
 
 ```{r}
 # Plot PCA
@@ -460,39 +559,338 @@ plotPCA(vsd, intgroup="condition")
 <br>
 <br>
 
-## 하다가 말음  
+# DEG analysis  
 
 ```{r}
-# if (!requireNamespace("BiocManager", quietly = TRUE))
-#   install.packages("BiocManager")
-# 
-# BiocManager::install("biomaRt")
-library(biomaRt)
+# HER2 vs LuminalA
 
-ensembl_ids <- unlist(lapply(rownames(normal), as.character), use.names=FALSE)
+her2_luminalA_meta_dat <- 
+  meta_dat %>% 
+  mutate(number=1:nrow(meta_dat)) %>% 
+  filter(condition %in% c("LuminalA","HER2"))
 
+her2_luminalA_normal <- 
+  normal %>% 
+  dplyr::select(her2_luminalA_meta_dat$number)
 
-ens <- useEnsembl(biomart="ensembl", 
-                  dataset="hsapiens_gene_ensembl")
-
-
-genes.tbl <- getBM(attributes = c("ensembl_gene_id","hgnc_symbol"),
-                   filters = "ensembl_gene_id",
-                   values = ensembl_ids, 
-                   mart = ens)
+all(rownames(her2_luminalA_meta_dat)==colnames(her2_luminalA_normal))
 
 
-head(genes.tbl)
+# HER2 vs Luminal B
+ 
+her2_luminalB_meta_dat <- 
+  meta_dat %>% 
+  mutate(number=1:nrow(meta_dat)) %>% 
+  filter(condition %in% c("LuminalB","HER2"))
+
+her2_luminalB_normal <- 
+  normal %>% 
+  dplyr::select(her2_luminalB_meta_dat$number)
+
+all(rownames(her2_luminalB_meta_dat)==colnames(her2_luminalB_normal))
+
+
+
+# HER2 vs TNBC
+
+her2_TNBC_meta_dat <- 
+  meta_dat %>% 
+  mutate(number=1:nrow(meta_dat)) %>% 
+  filter(condition %in% c("TNBC","HER2"))
+
+her2_TNBC_normal <- 
+  normal %>% 
+  dplyr::select(her2_TNBC_meta_dat$number)
+
+all(rownames(her2_TNBC_meta_dat)==colnames(her2_TNBC_normal))
+
+
+# Luminal A vs Luminal B
+
+luminalA_luminalB_meta_dat <- 
+  meta_dat %>% 
+  mutate(number=1:nrow(meta_dat)) %>% 
+  filter(condition %in% c("LuminalA","LuminalB"))
+
+luminalA_luminalB_normal <- 
+  normal %>% 
+  dplyr::select(luminalA_luminalB_meta_dat$number)
+
+all(rownames(luminalA_luminalB_meta_dat)==colnames(luminalA_luminalB_normal))
+
+
+# Luminal A vs TNBC
+
+luminalA_TNBC_meta_dat <- 
+  meta_dat %>% 
+  mutate(number=1:nrow(meta_dat)) %>% 
+  filter(condition %in% c("LuminalA","TNBC"))
+
+luminalA_TNBC_normal <- 
+  normal %>% 
+  dplyr::select(luminalA_TNBC_meta_dat$number)
+
+all(rownames(luminalA_TNBC_meta_dat)==colnames(luminalA_TNBC_normal))
+
+# Luminal B vs TNBC
+
+luminalB_TNBC_meta_dat <- 
+  meta_dat %>% 
+  mutate(number=1:nrow(meta_dat)) %>% 
+  filter(condition %in% c("LuminalB","TNBC"))
+
+luminalB_TNBC_normal <- 
+  normal %>% 
+  dplyr::select(luminalB_TNBC_meta_dat$number)
+
+all(rownames(luminalB_TNBC_meta_dat)==colnames(luminalB_TNBC_normal))
 ```  
 
-TCGA에 있는 genes형태의 ID를 firehose의 genes symbol로 mapping할 수 있다.  
-TCGA의 count데이터와 firehose의 normalized데이터를 join하여 순수 firehose만의 데이터(mRNA, Clinic)로 분석을 진행할 수 있을 것  
+각 비교할 type들의 유전자 쌍별로 데이터를 분리하여 DESeq2모형에 넣을 계획이다.  
+
+```{r warning=FALSE, message=FALSE}
+# HER2 vs LuminalA
+dds_HER2_luminalA <- 
+  DESeqDataSetFromMatrix(countData = her2_luminalA_normal,
+                         colData = her2_luminalA_meta_dat,
+                         design = ~ condition)
+dds_HER2_luminalA <- estimateSizeFactors(dds_HER2_luminalA)
+
+
+# HER2 vs LuminalB
+dds_HER2_luminalB <- 
+  DESeqDataSetFromMatrix(countData = her2_luminalB_normal,
+                         colData = her2_luminalB_meta_dat,
+                         design = ~ condition)
+dds_HER2_luminalB <- estimateSizeFactors(dds_HER2_luminalB)
+
+
+# HER2 vs TNBC
+dds_HER2_TNBC <- 
+  DESeqDataSetFromMatrix(countData = her2_TNBC_normal,
+                         colData = her2_TNBC_meta_dat,
+                         design = ~ condition)
+dds_HER2_TNBC <- estimateSizeFactors(dds_HER2_TNBC)
+
+
+# LuminalA vs LuminalB
+dds_luminalA_luminalB <- 
+  DESeqDataSetFromMatrix(countData = luminalA_luminalB_normal,
+                         colData = luminalA_luminalB_meta_dat,
+                         design = ~ condition)
+dds_luminalA_luminalB <- estimateSizeFactors(dds_luminalA_luminalB)
+
+
+
+# LuminalA vs TNBC
+dds_luminalA_TNBC <- 
+  DESeqDataSetFromMatrix(countData = luminalA_TNBC_normal,
+                         colData = luminalA_TNBC_meta_dat,
+                         design = ~ condition)
+dds_luminalA_TNBC <- estimateSizeFactors(dds_luminalA_TNBC)
+
+
+
+# LuminalB vs TNBC
+dds_luminalB_TNBC <- 
+  DESeqDataSetFromMatrix(countData = luminalB_TNBC_normal,
+                         colData = luminalB_TNBC_meta_dat,
+                         design = ~ condition)
+dds_luminalB_TNBC <- estimateSizeFactors(dds_luminalB_TNBC)
+```
+
+```{r eval=FALSE}
+# Run analysis
+dds_HER2_luminalA_model <- DESeq(dds_HER2_luminalA)
+
+# dds_HER2_luminalB_model <- DESeq(dds_HER2_luminalB)
+# 
+# dds_HER2_TNBC_model <- DESeq(dds_HER2_TNBC)
+# 
+# dds_luminalA_luminalB_model <- DESeq(dds_luminalA_luminalB)
+# 
+# dds_luminalA_TNBC_model <- DESeq(dds_luminalA_TNBC)
+# 
+# dds_luminalA_TNBC_model <- DESeq(dds_luminalB_TNBC)
+```  
+
+```{r echo=FALSE}
+load("D:/Jae Kwan/4학년여름/연구생/연구주제/dds_her2_luminalA객체.RData")
+```
 
 
 
 
+## HER2 vs Luminal A
 
-## 필요없는것 모아둠
+```{r}
+result_HER2_luminalA <- 
+  results(dds_HER2_luminalA_model,
+          contrast = c("condition", "HER2", "LuminalA"),
+          alpha = 0.05,
+          lfcThreshold = 0.2)
+
+# plotDispEsts(dds_HER2_luminalA_model)
+
+
+mcols(result_HER2_luminalA)
+result_HER2_luminalA
+```  
+
+|||
+|:---:|:-------:|
+|**baseMean**|mean value across all the samples|
+|**lfcSE**|standard error of the fold change estimates|
+|**stat**|wald statistics output from the wald test for differential expression|
+|**pvalue**|the wald test p-value|
+|**padj**|the Benjamini-Hochberg adjusted p-value|
+
+<br>
+
+```{r}
+summary(result_HER2_luminalA)
+```
+
+log fold change가 threshold보다 큰 값과 작은 값 등을 나타낸다.  
+
+<br>
+
+true positives또는 DE라고 불리는 유전자를 잘못된 것으로부터 구별하는 방법은 어려운데, DESeq2는 Benjamini-Hochberg(BH-method) 방법으로 p-value를 조정하고, true positive에 대해 false positive를 제어하기 위해 multiple test correction을 수행한다.  
+
+DESeq2는 모든 표본에 걸쳐 zero counts인 유전자, 평균값이 낮은 유전자, extreme 값을 가지는 outlier를 가진 유전자 등 testing전에 실제로 다르게 표현될 가능성이 없는 유전자들을 자동으로 걸러낸다.  
+
+`summary()`를 통해 alpha level에 대해 차이를 보이는 유전자의 수와 필터링된 유전자의 수에 대한 정보를 확인할 수 있다.  
+
+
+
+
+```{r}
+p1 <- 
+result_HER2_luminalA %>% 
+  data.frame %>% 
+  rownames_to_column(var = "gene") %>% 
+  mutate(threshold = padj < 0.05) %>% 
+  filter(threshold %notin% NA) %>% 
+  
+  ggplot(aes(x = log2FoldChange, y = -log10(padj), 
+             color = threshold)) +
+  theme_classic() + 
+  geom_point() + 
+  xlab("log2 fold chage") + 
+  ylab("-log10 adjusted p-value") + 
+  theme(legend.position = c(0.2,0.8),
+        legend.background = element_rect(linetype = "solid",
+                                         size = 0.5,
+                                         colour = "darkblue"),
+        plot.title = element_text(size = rel(1.5), hjust = 0.5),
+        axis.title = element_text(size = rel(1.25))) +
+  scale_x_continuous(breaks = seq(-12,10,2))
+
+
+p2 <- 
+result_HER2_luminalA %>% 
+  data.frame %>% 
+  rownames_to_column(var = "gene") %>% 
+  mutate(threshold = padj < 0.05) %>% 
+  filter(threshold %notin% NA) %>% 
+  
+  ggplot(aes(x = log2FoldChange, y = -log10(padj), 
+             color = threshold)) +
+  theme_classic() + 
+  geom_point() + 
+  xlab("log2 fold chage") + 
+  ylab("") +
+  theme(legend.position = "none") +
+  coord_cartesian(xlim=c(-5, 5),ylim=c(0,25))
+
+
+
+
+plotMA(dds_HER2_luminalA_model, ylim = c(-10,10))
+```  
+
+MA plot은 유전체 데이터의 시각적 표현을 위해 Bland-Altman plot을 적용한 것  
+
+데이터를 M(로그 비율)와 A(mean average)로 변환한 다음 이러한 값을 표시하여 두 표본에서 측정한 측정값 간의 차이를 시각화한다. 원래 두 채널 DNA 마이크로어레이 유전자 발현 데이터의 맥락에서 적용되었지만, MA 플롯은 high-throughput sequencing analysis을 시각화하는 데도 사용된다. 
+MA plot은 expression change와 condition의 차이에 대한 관계(log ratio, M), 유전자의 평균 변화 강도 그리고 유전자 차이 표현을 감지하는 알고리즘을 전반적으로 제공한다.  
+유의한 임계값을 통과한 유전자는 파란색으로 표시된다.  
+
+<br>  
+
+>분석 화학 또는 생물 의학에서의 Bland-Altman plot(difference plot)은 서로 다른 두 분석 사이의 합치를 분석하는 데 사용되는 data plotting 방법이다.  
+다른 분야에서 알려진 이름인 Tukey mean-difference plot과 동일하지만, Martin Bland와 Douglas G.Altman에 의해 의료 통계에 대중화되었다.  
+
+```{r}
+# plotCounts(dds_HER2_luminalA,
+#            gene=which.min(result_HER2_luminalA$padj),
+#            intgroup="condition")
+```  
+
+비록 한번에 많은 (또는 모든) 유전자를 그려내는 것이 도움이 되긴 하지만, 특정 유전자에 대한 count가 어떻게 변화하는지 보는 것도 좋다.  
+
+가장 유의한 차이를 보이는 유전자에 대한 그림이다.  
+
+
+```{r}
+p1 + p2
+```  
+
+
+<br>
+
+Fold change : 어떤 유전자에 대하여 실험군에서의 평균발현량이 대조군에서의 평균발현량의 몇 배인지를 나타냄  
+P-value : 두 군의 평균발현량 차이가 통계적으로 유의미한 값인지를 알려줌.  
+
+Volcano plot : Log-scaled fold-change를 X축, -Log-scaled P-value를 Y축으로 갖는 그래프로, 그 모습이 화산 폭발과 비슷하여 볼케이노 플롯이라고 불린다.  
+
+0.05를 threshold로 잡고 유의미한 유전자와 아닌 유전자를 색으로 표현  
+오른쪽 그림은 왼쪽 전체그림 중 중요한 부분만 확대하여 확인한 것  
+
+
+
+## HER2 vs Luminal B
+
+```{r}
+
+```
+
+## HER2 vs TNBC
+
+```{r}
+
+```  
+
+## Luminal A vs Luminal B
+
+```{r}
+
+```  
+
+## Luminal A vs TNBC
+
+```{r}
+
+```  
+
+## Luminal B vs TNBC
+
+```{r}
+
+```  
+
+
+# Classification  
+
+## ??  
+
+```{r}
+
+```
+
+
+
+
+# 필요없는것 모아둠
 
 limma, DEseq 또는 DESeq2패키지로 유전자 발현에 대한 차이를 분석할 수 있다.  
 
@@ -519,7 +917,7 @@ limma, DEseq 또는 DESeq2패키지로 유전자 발현에 대한 차이를 분�
 
 ```{r}
 # DEGexp(geneExpMatrix1 = normal, geneCol1 = 1, groupLabel1 = "Normal",
-#        geneExpMatrix2 = cancer, geneCol2=1, groupLabel2 = "Cancer",
+#        geneExpMatrix2 = cancer, geneCol2 = 1, groupLabel2 = "Cancer",
 #        method="MARS", output='output')
 ```  
 
@@ -528,13 +926,19 @@ limma, DEseq 또는 DESeq2패키지로 유전자 발현에 대한 차이를 분�
 # output <- fread("./output/output_score.txt")
 # 
 # head(output)
+```  
+
+```{r}
+# 유전자 이름? 어디 쓰는거지 이름이 TCGA랑 다름 
+# devtools::install_github("stephenturner/annotables")
+
+# library(annotables)
 ```
 
 
 
 
-
-## Refer  
+# Refer  
 
 * [TCGAbiolinks 대략적인 설명 블로그](http://www.incodom.kr/TCGAbiolinks#h_04b78a38c44c25698b471e7ea22434eb)  
 
@@ -550,8 +954,28 @@ limma, DEseq 또는 DESeq2패키지로 유전자 발현에 대한 차이를 분�
 
 * [biomaRt구글링](https://www.bioconductor.org/packages/devel/bioc/vignettes/biomaRt/inst/doc/accessing_ensembl.html)  
 
+<br>
+<br>
 
+간접적 도움 읽어본 자료  
 
+* [Remove rows with all or some NAs in data.frame](https://stackoverflow.com/questions/4862178/remove-rows-with-all-or-some-nas-missing-values-in-data-frame)  
+
+* [TCGA BRCA - SOX10](https://www.biostars.org/p/381632/)  
+
+* [Matched Paired Tumour-Normal DEA of BRCA using data downloaded using TCGAbiolinks](https://www.biostars.org/p/321918/)  
+
+* [Differential Expression and Visualization in R](https://angus.readthedocs.io/en/2019/diff-ex-and-viz.html#differential-expression-with-deseq2)  
+
+* [R&DESeq2 - Volcano plot 네이버 블로그](http://blog.naver.com/PostView.nhn?blogId=cjh226&logNo=221360753408&parentCategoryNo=&categoryNo=18&viewDate=&isShowPopularPosts=false&from=postList)  
+
+* [TCGA Workflow: Analyze cancer genomics and epigenomics data using Bioconductor packages](https://bioconductor.org/packages/devel/workflows/vignettes/TCGAWorkflow/inst/doc/TCGAWorkflow.html#abstract)  
+
+* [Introduction to DGE](https://hbctraining.github.io/DGE_workshop/lessons/05_DGE_DESeq2_analysis2.html)  
+
+* [Using DESeq2 for gene-level differential expression analysis - GITHUB](https://github.com/hbctraining/DGE_workshop/blob/master/exercises/DGE_analysis_exercises%20answer_key.md)  
+
+* [workflow in DESeq2](http://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html)  
 
 
 
