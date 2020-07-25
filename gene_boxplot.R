@@ -178,3 +178,62 @@ work_temp %>%
   labs(fill="Subtype") + 
   scale_x_discrete(guide = guide_axis(n.dodge = 2))
 
+# 4개 중 하나라도 유의한 유전자에 대한 것 중 10개를 도식화 한 것이다.
+
+work_temp %>%
+  ggplot(aes(x=gene,y=count,fill=condition))+
+  geom_boxplot() +
+  scale_fill_viridis(discrete = TRUE, alpha=0.8) +
+  geom_jitter(color="black", size=0.06, alpha=0.2)+
+  theme_ipsum() +
+  theme(
+    legend.position=c(.9, .8),
+    plot.title = element_text(size=11)
+  ) +
+  ggtitle("A boxplot by subtype") +
+  xlab("") +
+  ylab("Normalized Count") +
+  labs(fill="Subtype") + 
+  scale_x_discrete(guide = guide_axis(n.dodge = 2))
+
+
+
+
+# classificatoin ----------------------------------------------------------
+set.seed(100)
+index <- createDataPartition(1:630, p = 0.8, list = F)
+
+train_x <- normal_temp[index,]
+test_x <- normal_temp[-index,]
+
+train_y <- meta_dat[index,] 
+test_y <- meta_dat[-index,]
+
+
+trControl <- trainControl(method="cv",
+                          number=5,
+                          allowParallel =TRUE)
+
+Grid <- expand.grid(.alpha = seq(0, 1, 0.1),
+                    .lambda = seq(0.001, 0.1, length.out = 50))
+
+
+glm_train <- train(x = train_x,
+                   y = train_y,
+                   method = "glmnet",
+                   tuneGrid = Grid,
+                   trControl = trControl,
+                   metric = "accuracy",
+                   verbose = FALSE)
+  
+
+plot(glm_train)
+glm_train$bestTune
+
+prediction <- predict(glm_train, newdata = test_x, type="raw")
+
+
+confusionMatrix(prediction, test_y %>% as.factor)
+
+
+
