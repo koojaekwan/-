@@ -2,6 +2,8 @@
 title: "gene subtype boxplot"
 author: "Jae Kwan Koo"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -10,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE, eval = F)
 
 ## Library  
 
-```{r}
+```{r warning=F, message=FALSE}
 # Manipulate
 library(tidyverse)
 library(data.table)
@@ -19,6 +21,8 @@ library(data.table)
 library(glmnet)
 library(caret)
 library(Metrics)
+library(ROSE) # rose
+library(DMwR) # smote
 
 # Parallel
 library(doParallel)
@@ -26,6 +30,9 @@ library(doParallel)
 # Visualization
 library(hrbrthemes)
 library(viridis)
+library(plotROC) # plot the ROC curve
+library(pROC)
+library(patchwork)
 ```  
 
 
@@ -199,12 +206,351 @@ work_temp %>%
 
 ![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/boxplot.png) 
 
+## Data partition  
+
+```{r}
+set.seed(100)
+index <- createDataPartition(1:630, p = 0.8, list = F)
+
+train_x <- normal_temp[index,]
+train_y <- meta_dat[index,] 
+
+test_x <- normal_temp[-index,]
+test_y <- meta_dat[-index,]
+```
+
+
+## Imbalance Data  
+
+```{r}
+prop.table(table(meta_dat))
+prop.table(table(train_y))
+prop.table(table(test_y))
+
+table(train_y)
+```  
+
+
+## Classification without sampling method  
+
+```{r}
+trControl <- trainControl(method="cv",
+                          number=5,
+                          allowParallel =TRUE)
+
+Grid <- expand.grid(.alpha = seq(0, 1, 0.1),
+                    .lambda = seq(0.001, 0.1, length.out = 50))
+
+
+glm_train <- train(x = train_x,
+                   y = train_y,
+                   method = "glmnet",
+                   tuneGrid = Grid,
+                   trControl = trControl,
+                   metric = "Accuracy",
+                   verbose = FALSE)
+  
+
+glm_train$bestTune
+
+prediction <- predict(glm_train, newdata = test_x, type="raw")
+
+
+confusionMatrix(prediction, test_y %>% as.factor)
+```  
+
+## Up & Down sampling  
+
+```{r}
+train_y <- train_y %>% data.frame(class=.)
+train_y$class <- train_y$class %>% as.factor
+
+
+
+
+
+x <- caret::upSample(x = train_x, y = train_y$class)
+
+table(x$Class)
+
+
+x2 <- caret::downSample(x = train_x, y = train_y$class)
+
+table(x2$Class)
+```  
+
+
+```{r}
+up_train_x <- x %>% select(-"Class")
+up_train_y <- x$Class %>% as.character
+
+down_train_x <- x2 %>% select(-"Class")
+down_train_y <- x2$Class %>% as.character
+
+
+train_y <- meta_dat[index,] 
+```  
+
+## SMOTE  
+
+```{r}
+data_sampling <- train_x %>% bind_cols(train_y %>%
+                                         data.frame(class=.))
+data_sampling$class <- data_sampling$class %>% as.factor
+
+
+# sampling_rose <- ROSE(class~., data=data_rose, seed=100)$data
+
+
+sampling_smote <- SMOTE(class~., 
+                        data=data_sampling,
+                        k = 5)
+```  
+
+```{r}
+train_y %>% table
+sampling_smote$class %>% table
+```  
+
+
+
+[SMOTE](https://medium.com/@hslee09/r-%EB%B6%84%EB%A5%98-%EC%95%8C%EA%B3%A0%EB%A6%AC%EC%A6%98-%ED%81%B4%EB%9E%98%EC%8A%A4-%EB%B6%88%EA%B7%A0%ED%98%95-f5a260056049)  
+
+
+## Model application  
+
+
+```{r}
+trControl <- trainControl(method="cv",
+                          number=5,
+                          allowParallel =TRUE)
+
+Grid_new <- expand.grid(.alpha = seq(0, 1, 0.1),
+                        .lambda = seq(0.001, 0.1, length.out = 25))
+
+
+
+
+glm_train_under <- train(x = down_train_x,
+                         y = down_train_y,
+                         method = "glmnet",
+                         tuneGrid = Grid_new,
+                         trControl = trControl,
+                         metric = "Accuracy",
+                         verbose = FALSE)
+  
+
+glm_train_under$bestTune
+
+prediction_under <- predict(glm_train_under, newdata = test_x, type="raw")
+
+
+confusionMatrix(prediction_under, test_y %>% as.factor)
+
+
+## oversampling -------------------------------- 
+
+
+glm_train_over  <- train(x = up_train_x,
+                         y = up_train_y,
+                         method = "glmnet",
+                         tuneGrid = Grid_new,
+                         trControl = trControl,
+                         metric = "Accuracy",
+                         verbose = FALSE)
+  
+
+glm_train_over$bestTune
+
+prediction_over <- predict(glm_train_over, newdata = test_x, type="raw")
+
+
+confusionMatrix(prediction_over, test_y %>% as.factor)
+
+
+# SMOTE --------------------------
+
+trControl_smote  <- trainControl(method="cv",
+                                 number=5,
+                                 sampling = "smote",
+                                 allowParallel =TRUE)
+
+
+glm_train_smote  <- train(x = sampling_smote %>% select(-class),
+                          y = sampling_smote$class,
+                          method = "glmnet",
+                          tuneGrid = Grid_new,
+                          trControl = trControl_smote,
+                          metric = "Accuracy",
+                          verbose = FALSE)
+
+
+glm_train_smote$bestTune
+
+prediction_smote <- predict(glm_train_smote, newdata = test_x, type="raw")
+
+
+confusionMatrix(prediction_smote, test_y %>% as.factor)
+```
+
+```{r echo=FALSE}
+load("D:/Jae Kwan/4학년여름/연구생/연구주제/glm_model_gridsearch.RData")
+```  
+
+```{r echo=FALSE}
+load("D:/Jae Kwan/4학년여름/연구생/연구주제/데이터객체/over_under.RData")
+```  
+
+
+## 일반적인 성능 평가 지표
+
+```{r}
+breast_models <- list(original = glm_train,
+                      under = glm_train_under,
+                      over = glm_train_over,
+                      smote = glm_train_smote)
+
+breast_resampling <- resamples(breast_models)
+
+bwplot(breast_resampling)
+```  
+
+![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/resampling_model.png)  
 
 
 
 
 
 
+## Accuracy  
+
+```{r}
+pred_under <- predict(glm_train_under, newdata = test_x)
+pred_over <- predict(glm_train_over, newdata = test_x)
+pred_smote <- predict(glm_train_smote, newdata = test_x)
+
+# Oversampling
+confusionMatrix(pred_over %>% as.factor, test_y %>% as.factor)$table
+confusionMatrix(pred_over %>% as.factor, test_y %>% as.factor)$overall[1]
 
 
+# Undersampling
+confusionMatrix(pred_under %>% as.factor, test_y %>% as.factor)$table
+confusionMatrix(pred_under %>% as.factor, test_y %>% as.factor)$overall[1]
+
+
+# SMOTE
+confusionMatrix(pred_smote %>% as.factor, test_y %>% as.factor)$table
+confusionMatrix(pred_smote %>% as.factor, test_y %>% as.factor)$overall[1]
+
+
+# Original
+confusionMatrix(prediction %>% as.factor, test_y %>% as.factor)$table
+confusionMatrix(prediction %>% as.factor, test_y %>% as.factor)$overall[1]
+```  
+## GRID  
+
+```{r}
+theme_set(new = theme_bw())
+
+p1 <- 
+ggplot(glm_train) + theme(legend.position = "none",
+                          legend.direction = "vertical") +
+  labs(title="Grid Search", subtitle="Original Data")
+  
+
+p2 <- 
+ggplot(glm_train_under) + theme(legend.position = "right",
+                          legend.direction = "vertical") +
+  labs(title="Grid Search", subtitle="Undersampling Data")
+
+p3 <- 
+ggplot(glm_train_over) + theme(legend.position = "none",
+                          legend.direction = "vertical") +
+  labs(title="Grid Search", subtitle="Oversampling Data")
+
+p4 <- 
+ggplot(glm_train_smote) + theme(legend.position = "right",
+                          legend.direction = "vertical") +
+  labs(title="Grid Search", subtitle="SMOTE Data")
+
+
+p1+p2+p3+p4
+```  
+
+![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/grid_patchwork.png)  
+
+
+## Multiclass ROC CURVE  
+
+```{r}
+# direction = auto
+
+
+# Oversampling AUC
+over_roc <- 
+pROC::multiclass.roc(pred_over %>% as.numeric(),
+                     test_y %>% as.factor %>% as.numeric(),
+                     direction ="<")
+
+
+
+# Undersampling AUC
+under_roc <- 
+pROC::multiclass.roc(pred_under %>% as.factor %>% as.numeric,
+                     test_y %>% as.factor %>% as.numeric,
+                     direction ="<")
+
+
+
+# SMOTE AUC
+smote_roc <- 
+pROC::multiclass.roc(pred_smote %>% as.factor %>% as.numeric,
+                     test_y %>% as.factor %>% as.numeric,
+                     direction ="<")
+
+
+
+
+# Original AUC
+original_roc <- 
+pROC::multiclass.roc(prediction %>% as.factor %>% as.numeric,
+                     test_y %>% as.factor %>% as.numeric,
+                     direction ="<")
+
+
+```  
+<br>
+
+
+```{r}
+over_rc <- over_roc[['rocs']]
+under_rc <- under_roc[['rocs']]
+smote_rc <- smote_roc[['rocs']]
+original_rs <- original_roc[['rocs']]
+
+par(mfrow=c(2,2))
+
+# over
+plot.roc(over_rc[[1]], main = "ROC : Oversampling")
+sapply(2:length(over_rc),function(i) lines.roc(over_rc[[i]],col=i))
+text(0,0.2,labels="AUC : 0.7958", col="red")
+
+# under
+plot.roc(under_rc[[1]], main = "ROC : Undersampling")
+sapply(2:length(under_rc),function(i) lines.roc(under_rc[[i]],col=i))
+text(0,0.2,labels="AUC : 0.8915", col="red")
+
+# smote
+plot.roc(smote_rc[[1]], main = "ROC : SMOTE")
+sapply(2:length(smote_rc),function(i) lines.roc(smote_rc[[i]],col=i))
+text(0,0.2,labels="AUC : 0.7915", col="red")
+
+# original
+plot.roc(original_rs[[1]], main = "ROC : Original")
+sapply(2:length(original_rs),function(i) lines.roc(original_rs[[i]],col=i))
+text(0,0.2,labels="AUC : 0.8541", col="red")
+```  
+
+![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/ROC.png)  
 
