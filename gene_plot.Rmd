@@ -1,13 +1,21 @@
 ---
-title: "gene subtype boxplot"
+title: "gene subtype classification"
 author: "Jae Kwan Koo"
-output: html_document
-editor_options: 
-  chunk_output_type: console
+output:
+  html_document:
+    df_print: paged
+    code_folding: show
+    fig_height: 6
+    fig_width: 10
+    highlight: textmate
+  word_document: default
+  github_document:
+    toc: yes
+    toc_depth: 4
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, eval = F)
+knitr::opts_chunk$set(echo = TRUE, eval = T)
 ```  
 
 ## Library  
@@ -16,6 +24,7 @@ knitr::opts_chunk$set(echo = TRUE, eval = F)
 # Manipulate
 library(tidyverse)
 library(data.table)
+library(glue)
 
 # Model
 library(glmnet)
@@ -23,6 +32,7 @@ library(caret)
 library(Metrics)
 library(ROSE) # rose
 library(DMwR) # smote
+library(ggfortify) # pca 
 
 # Parallel
 library(doParallel)
@@ -34,7 +44,9 @@ library(plotROC) # plot the ROC curve
 library(pROC)
 library(patchwork)
 ```  
-
+```{r echo=FALSE}
+load("D:/Jae Kwan/4학년여름/연구생/연구주제/glm_model_gridsearch.RData")
+```  
 
 ## Parallel processing  
 
@@ -65,11 +77,11 @@ cancer_fit <- glmnet(x = normal_t,
                      type.multinomial = "grouped", 
                      alpha = 1) # alpha=1 : lasso
 
-par(mfrow=c(2,2))
-plot(cancer_fit)
+# par(mfrow=c(2,2))
+# plot(cancer_fit)
 ```  
 
-![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/glmnet.png)  
+ 
 
 
 
@@ -86,25 +98,18 @@ cv.glmnet(x = normal_t,
           alpha = 1,
           parallel = T)
 
-par(mfrow=c(1,1))
-plot(cv_fit)
-
-par(mfrow=c(2,2))
-plot(cv_fit$glmnet.fit, xvar="lambda")
-plot(cv_fit$glmnet.fit, xvar="norm")
-par(mfrow=c(1,1))
+# par(mfrow=c(1,1))
+# plot(cv_fit)
+# 
+# par(mfrow=c(2,2))
+# plot(cv_fit$glmnet.fit, xvar="lambda")
+# plot(cv_fit$glmnet.fit, xvar="norm")
+# par(mfrow=c(1,1))
 
 
 cv_fit$lambda.1se
 cv_fit$lambda.min
 ```  
-
-![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/cv_lambda.png) 
-
-![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/cv_loglambda.png) 
-
-
-![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/cv_l1norm.png) 
 
 
 ## Coefficients  
@@ -128,7 +133,7 @@ all(k3$name==k4$name)
 k1 %>% 
   left_join(k2, by = "name") %>% 
   left_join(k3, by = "name") %>% 
-  left_join(k3, by = "name")
+  left_join(k4, by = "name")
 ```  
 
 ## normalized count & gene condition  
@@ -204,7 +209,135 @@ work_temp %>%
   scale_x_discrete(guide = guide_axis(n.dodge = 2))
 ```  
 
-![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/boxplot.png) 
+
+
+## Feature Selection with LASSO  
+
+```{r}
+cv_fit$lambda.min %>% log
+cv_fit$lambda.1se %>% log
+
+minus_min_lse <- 
+  cv_fit$lambda.min - (cv_fit$lambda.1se - cv_fit$lambda.min)
+
+cv_fit$lambda.min
+cv_fit$lambda.1se
+minus_min_lse
+
+
+
+plot(cv_fit)
+abline(v = log(minus_min_lse), col = "red", lwd = 1.5)
+text(-4.5,1.4, 
+     labels = glue("log Lambda = {round(log(minus_min_lse),4)}"),
+     col="red")
+
+
+
+# coef
+feature_coef <- coef(cancer_fit, s = minus_min_lse)
+
+data.frame(name = feature_coef[[1]]@Dimnames[[1]][feature_coef[[1]]@i + 1], coefficient = feature_coef[[1]]@x) -> new1
+
+data.frame(name = feature_coef[[2]]@Dimnames[[1]][feature_coef[[2]]@i + 1], coefficient = feature_coef[[2]]@x) -> new2
+
+data.frame(name = feature_coef[[3]]@Dimnames[[1]][feature_coef[[3]]@i + 1], coefficient = feature_coef[[3]]@x) -> new3
+
+data.frame(name = feature_coef[[4]]@Dimnames[[1]][feature_coef[[4]]@i + 1], coefficient = feature_coef[[4]]@x) -> new4
+
+
+all(new1$name==new2$name)
+all(new2$name==new3$name)
+all(new3$name==new4$name)
+
+selected_dat <- 
+new1 %>% 
+  left_join(new2, by = "name") %>% 
+  left_join(new3, by = "name") %>% 
+  left_join(new4, by = "name")
+
+selected_dat <- selected_dat[-1,] # delete intercept row
+```  
+
+## PCA with selected Genes  
+
+```{r}
+# confirm the 180 genes
+normal_z %>%
+  rownames_to_column(var = "name") %>% 
+  .$name %in% selected_dat$name %>% sum
+
+
+pca_dat <- 
+normal_z[normal_z %>% rownames_to_column(var = "name") %>% 
+  .$name %in% selected_dat$name, ] # (180 : genes, 630 : patients)
+
+pca_dat[1:3,1:2]
+
+
+pca_dat <- pca_dat %>% t %>% data.frame
+
+pca_obj <- prcomp(pca_dat)
+pca_obj <- as.data.frame(pca_obj$x)
+
+
+
+theme<-
+  theme(panel.background =
+          element_blank(),
+        panel.border=element_rect(fill=NA),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        strip.background=element_blank(),
+        axis.text.x=element_text(colour="black"),
+        axis.text.y=element_text(colour="black"),
+        axis.ticks=element_line(colour="black"),
+        plot.margin=unit(c(1,1,1,1),"line"),
+        legend.position=c(0.85,0.8))
+
+
+
+
+ggplot(pca_obj,aes(x=PC1,y=PC2, color=meta_dat$condition)) +
+  geom_point() +
+  theme + 
+  labs(color='Subtype') 
+```  
+
+## Boruta feature selection  
+
+```{r}
+library(Boruta)
+feature_dat <- pca_dat %>% bind_cols(condition = meta_dat$condition)
+feature_dat$condition <- feature_dat$condition %>% as.factor
+
+
+set.seed(100)
+boruta_results <- Boruta(condition ~ ., 
+                         data = feature_dat, 
+                         maxRuns=100)
+
+
+boruta_results$finalDecision %>% data.frame %>% table
+plot(boruta_results, las = 1, xaxt='n')
+```  
+
+## Data  
+
+```{r}
+# data <- normal_temp[,selected_dat$name]
+# data[1:2,1:2]
+
+good_feature <- 
+boruta_results$finalDecision %>% 
+  data.frame %>% 
+  filter(.!="Rejected") %>% 
+  rownames
+
+data <- pca_dat[, good_feature]
+data[1:2,1:2]
+```  
+
 
 ## Data partition  
 
@@ -212,10 +345,10 @@ work_temp %>%
 set.seed(100)
 index <- createDataPartition(1:630, p = 0.8, list = F)
 
-train_x <- normal_temp[index,]
+train_x <- data[index,]
 train_y <- meta_dat[index,] 
 
-test_x <- normal_temp[-index,]
+test_x <- data[-index,]
 test_y <- meta_dat[-index,]
 ```
 
@@ -234,39 +367,39 @@ table(train_y)
 ## Classification without sampling method  
 
 ```{r}
-trControl <- trainControl(method="cv",
-                          number=5,
+set.seed(100)
+trControl <- trainControl(method="repeatedcv",
+                          number=10,
+                          repeats = 3,
                           allowParallel =TRUE)
 
-Grid <- expand.grid(.alpha = seq(0, 1, 0.1),
-                    .lambda = seq(0.001, 0.1, length.out = 50))
+Grid <- expand.grid(.mtry = 1:20)
 
 
-glm_train <- train(x = train_x,
-                   y = train_y,
-                   method = "glmnet",
-                   tuneGrid = Grid,
-                   trControl = trControl,
-                   metric = "Accuracy",
-                   verbose = FALSE)
+rf_train <- train(x = train_x, 
+                  y = train_y,
+                  method = "rf",
+                  tuneGrid = Grid,
+                  trControl = trControl,
+                  metric = "Accuracy",
+                  ntree=400,
+                  verbose = FALSE)
   
 
-glm_train$bestTune
+rf_train$bestTune
 
-prediction <- predict(glm_train, newdata = test_x, type="raw")
+pred_original <- predict(rf_train, newdata = test_x, type="raw")
 
 
-confusionMatrix(prediction, test_y %>% as.factor)
+confusionMatrix(pred_original, test_y %>% as.factor)
 ```  
 
 ## Up & Down sampling  
 
 ```{r}
+set.seed(100)
 train_y <- train_y %>% data.frame(class=.)
 train_y$class <- train_y$class %>% as.factor
-
-
-
 
 
 x <- caret::upSample(x = train_x, y = train_y$class)
@@ -299,11 +432,13 @@ data_sampling <- train_x %>% bind_cols(train_y %>%
 data_sampling$class <- data_sampling$class %>% as.factor
 
 
-# sampling_rose <- ROSE(class~., data=data_rose, seed=100)$data
-
-
+# sampling_rose <- ROSE(class~., data=data_sampling, seed=100)$data
+# The response variable must have 2 levels : regulations
+set.seed(100)
 sampling_smote <- SMOTE(class~., 
                         data=data_sampling,
+                        perc.over = 200,
+                        perc.under = 300,
                         k = 5)
 ```  
 
@@ -321,28 +456,20 @@ sampling_smote$class %>% table
 
 
 ```{r}
-trControl <- trainControl(method="cv",
-                          number=5,
-                          allowParallel =TRUE)
-
-Grid_new <- expand.grid(.alpha = seq(0, 1, 0.1),
-                        .lambda = seq(0.001, 0.1, length.out = 25))
-
-
-
-
-glm_train_under <- train(x = down_train_x,
-                         y = down_train_y,
-                         method = "glmnet",
-                         tuneGrid = Grid_new,
-                         trControl = trControl,
-                         metric = "Accuracy",
-                         verbose = FALSE)
+set.seed(100)
+rf_train_under <- train(x = down_train_x,
+                        y = down_train_y,
+                        method = "rf",
+                        tuneGrid = Grid,
+                        trControl = trControl,
+                        metric = "Accuracy",
+                        ntree=400,
+                        verbose = FALSE)
   
 
-glm_train_under$bestTune
+rf_train_under$bestTune
 
-prediction_under <- predict(glm_train_under, newdata = test_x, type="raw")
+prediction_under <- predict(rf_train_under, newdata = test_x, type="raw")
 
 
 confusionMatrix(prediction_under, test_y %>% as.factor)
@@ -351,18 +478,19 @@ confusionMatrix(prediction_under, test_y %>% as.factor)
 ## oversampling -------------------------------- 
 
 
-glm_train_over  <- train(x = up_train_x,
-                         y = up_train_y,
-                         method = "glmnet",
-                         tuneGrid = Grid_new,
-                         trControl = trControl,
-                         metric = "Accuracy",
-                         verbose = FALSE)
+rf_train_over  <- train(x = up_train_x,
+                        y = up_train_y,
+                        method = "rf",
+                        tuneGrid = Grid,
+                        trControl = trControl,
+                        metric = "Accuracy",
+                        ntree=400,
+                        verbose = FALSE)
   
 
-glm_train_over$bestTune
+rf_train_over$bestTune
 
-prediction_over <- predict(glm_train_over, newdata = test_x, type="raw")
+prediction_over <- predict(rf_train_over, newdata = test_x, type="raw")
 
 
 confusionMatrix(prediction_over, test_y %>% as.factor)
@@ -370,115 +498,101 @@ confusionMatrix(prediction_over, test_y %>% as.factor)
 
 # SMOTE --------------------------
 
-trControl_smote  <- trainControl(method="cv",
-                                 number=5,
-                                 sampling = "smote",
-                                 allowParallel =TRUE)
+rf_train_smote  <- train(x = sampling_smote %>% select(-class),
+                         y = sampling_smote$class,
+                         method = "rf",
+                         tuneGrid = Grid,
+                         trControl = trControl,
+                         metric = "Accuracy",
+                         ntree=400,
+                         verbose = FALSE)
 
 
-glm_train_smote  <- train(x = sampling_smote %>% select(-class),
-                          y = sampling_smote$class,
-                          method = "glmnet",
-                          tuneGrid = Grid_new,
-                          trControl = trControl_smote,
-                          metric = "Accuracy",
-                          verbose = FALSE)
+rf_train_smote$bestTune
 
-
-glm_train_smote$bestTune
-
-prediction_smote <- predict(glm_train_smote, newdata = test_x, type="raw")
+prediction_smote <- predict(rf_train_smote, newdata = test_x, type="raw")
 
 
 confusionMatrix(prediction_smote, test_y %>% as.factor)
 ```
 
-```{r echo=FALSE}
-load("D:/Jae Kwan/4학년여름/연구생/연구주제/glm_model_gridsearch.RData")
-```  
-
-```{r echo=FALSE}
-load("D:/Jae Kwan/4학년여름/연구생/연구주제/데이터객체/over_under.RData")
-```  
-
 
 ## 일반적인 성능 평가 지표
 
 ```{r}
-breast_models <- list(original = glm_train,
-                      under = glm_train_under,
-                      over = glm_train_over,
-                      smote = glm_train_smote)
+set.seed(100)
+breast_models <- list(original = rf_train,
+                      under = rf_train_under,
+                      over = rf_train_over,
+                      smote = rf_train_smote)
 
 breast_resampling <- resamples(breast_models)
 
 bwplot(breast_resampling)
 ```  
 
-![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/resampling_model.png)  
-
-
-
-
 
 
 ## Accuracy  
 
 ```{r}
-pred_under <- predict(glm_train_under, newdata = test_x)
-pred_over <- predict(glm_train_over, newdata = test_x)
-pred_smote <- predict(glm_train_smote, newdata = test_x)
-
 # Oversampling
-confusionMatrix(pred_over %>% as.factor, test_y %>% as.factor)$table
-confusionMatrix(pred_over %>% as.factor, test_y %>% as.factor)$overall[1]
+confusionMatrix(prediction_over %>% as.factor, 
+                test_y %>% as.factor)$table
+confusionMatrix(prediction_over %>% as.factor, 
+                test_y %>% as.factor)$overall[1]
 
 
 # Undersampling
-confusionMatrix(pred_under %>% as.factor, test_y %>% as.factor)$table
-confusionMatrix(pred_under %>% as.factor, test_y %>% as.factor)$overall[1]
+confusionMatrix(prediction_under %>% as.factor, 
+                test_y %>% as.factor)$table
+confusionMatrix(prediction_under %>% as.factor, 
+                test_y %>% as.factor)$overall[1]
 
 
 # SMOTE
-confusionMatrix(pred_smote %>% as.factor, test_y %>% as.factor)$table
-confusionMatrix(pred_smote %>% as.factor, test_y %>% as.factor)$overall[1]
+confusionMatrix(prediction_smote %>% as.factor, 
+                test_y %>% as.factor)$table
+confusionMatrix(prediction_smote %>% as.factor, 
+                test_y %>% as.factor)$overall[1]
 
 
 # Original
-confusionMatrix(prediction %>% as.factor, test_y %>% as.factor)$table
-confusionMatrix(prediction %>% as.factor, test_y %>% as.factor)$overall[1]
+confusionMatrix(pred_original %>% as.factor, 
+                test_y %>% as.factor)$table
+confusionMatrix(pred_original %>% as.factor, 
+                test_y %>% as.factor)$overall[1]
 ```  
+
 ## GRID  
 
 ```{r}
 theme_set(new = theme_bw())
 
 p1 <- 
-ggplot(glm_train) + theme(legend.position = "none",
+ggplot(rf_train) + theme(legend.position = "none",
                           legend.direction = "vertical") +
   labs(title="Grid Search", subtitle="Original Data")
   
 
 p2 <- 
-ggplot(glm_train_under) + theme(legend.position = "right",
+ggplot(rf_train_under) + theme(legend.position = "right",
                           legend.direction = "vertical") +
   labs(title="Grid Search", subtitle="Undersampling Data")
 
 p3 <- 
-ggplot(glm_train_over) + theme(legend.position = "none",
+ggplot(rf_train_over) + theme(legend.position = "none",
                           legend.direction = "vertical") +
   labs(title="Grid Search", subtitle="Oversampling Data")
 
 p4 <- 
-ggplot(glm_train_smote) + theme(legend.position = "right",
+ggplot(rf_train_smote) + theme(legend.position = "right",
                           legend.direction = "vertical") +
   labs(title="Grid Search", subtitle="SMOTE Data")
 
 
 p1+p2+p3+p4
 ```  
-
-![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/grid_patchwork.png)  
 
 
 ## Multiclass ROC CURVE  
@@ -489,7 +603,7 @@ p1+p2+p3+p4
 
 # Oversampling AUC
 over_roc <- 
-pROC::multiclass.roc(pred_over %>% as.numeric(),
+pROC::multiclass.roc(prediction_over %>% as.numeric(),
                      test_y %>% as.factor %>% as.numeric(),
                      direction ="<")
 
@@ -497,7 +611,7 @@ pROC::multiclass.roc(pred_over %>% as.numeric(),
 
 # Undersampling AUC
 under_roc <- 
-pROC::multiclass.roc(pred_under %>% as.factor %>% as.numeric,
+pROC::multiclass.roc(prediction_under %>% as.factor %>% as.numeric,
                      test_y %>% as.factor %>% as.numeric,
                      direction ="<")
 
@@ -505,7 +619,7 @@ pROC::multiclass.roc(pred_under %>% as.factor %>% as.numeric,
 
 # SMOTE AUC
 smote_roc <- 
-pROC::multiclass.roc(pred_smote %>% as.factor %>% as.numeric,
+pROC::multiclass.roc(prediction_smote %>% as.factor %>% as.numeric,
                      test_y %>% as.factor %>% as.numeric,
                      direction ="<")
 
@@ -514,12 +628,18 @@ pROC::multiclass.roc(pred_smote %>% as.factor %>% as.numeric,
 
 # Original AUC
 original_roc <- 
-pROC::multiclass.roc(prediction %>% as.factor %>% as.numeric,
+pROC::multiclass.roc(pred_original %>% as.factor %>% as.numeric,
                      test_y %>% as.factor %>% as.numeric,
                      direction ="<")
 
 
+
+over_roc$auc
+under_roc$auc
+smote_roc$auc
+original_roc$auc
 ```  
+
 <br>
 
 
@@ -534,23 +654,22 @@ par(mfrow=c(2,2))
 # over
 plot.roc(over_rc[[1]], main = "ROC : Oversampling")
 sapply(2:length(over_rc),function(i) lines.roc(over_rc[[i]],col=i))
-text(0,0.2,labels="AUC : 0.7958", col="red")
+text(0,0.2,labels=glue("AUC : {round(over_roc$auc,4)}"), col="red")
 
 # under
 plot.roc(under_rc[[1]], main = "ROC : Undersampling")
 sapply(2:length(under_rc),function(i) lines.roc(under_rc[[i]],col=i))
-text(0,0.2,labels="AUC : 0.8915", col="red")
+text(0,0.2,labels=glue("AUC : {round(under_roc$auc,4)}"), col="red")
 
 # smote
 plot.roc(smote_rc[[1]], main = "ROC : SMOTE")
 sapply(2:length(smote_rc),function(i) lines.roc(smote_rc[[i]],col=i))
-text(0,0.2,labels="AUC : 0.7915", col="red")
+text(0,0.2,labels=glue("AUC : {round(smote_roc$auc,4)}"), col="red")
 
 # original
 plot.roc(original_rs[[1]], main = "ROC : Original")
 sapply(2:length(original_rs),function(i) lines.roc(original_rs[[i]],col=i))
-text(0,0.2,labels="AUC : 0.8541", col="red")
+text(0,0.2,labels=glue("AUC : {round(original_roc$auc,4)}"),
+     col="red")
 ```  
-
-![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/ROC.png)  
 
