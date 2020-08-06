@@ -198,8 +198,7 @@ DESeq2패키지로 분석이 가능
 
 1. mRNA데이터를 통해 유방암 subtype들의 different expression gene을 분석  
 
-2. 단일적으로 tumor, normal에 대해 QC이 후, DEG를 수행하고 해석하는 것도 나쁘지 않아보인다.  
-
+2. 단일적으로 tumor, normal에 대해 QC이 후, DEG를 수행하고 해석하는 것도 나쁘지 않다.  
 
 tumor, normal을 분류하는 모형을 구축함에 있어서 DEG를 통해 발현적으로 유의한 gene들만 선택하는 등 feature selection에 이용할 수도 있을 것  
 
@@ -249,6 +248,8 @@ library(ggthemes)
 ```{r}
 `%notin%` <- Negate(`%in%`)
 ```  
+
+사용자 부정 명령어를 할당  
 
 
 ## Download the mRNA - count   
@@ -576,74 +577,74 @@ her2_luminalA_normal <-
 all(rownames(her2_luminalA_meta_dat)==colnames(her2_luminalA_normal))
 
 
-# HER2 vs Luminal B
- 
-her2_luminalB_meta_dat <- 
-  meta_dat %>% 
-  mutate(number=1:nrow(meta_dat)) %>% 
-  filter(condition %in% c("LuminalB","HER2"))
-
-her2_luminalB_normal <- 
-  normal %>% 
-  dplyr::select(her2_luminalB_meta_dat$number)
-
-all(rownames(her2_luminalB_meta_dat)==colnames(her2_luminalB_normal))
-
-
-
-# HER2 vs TNBC
-
-her2_TNBC_meta_dat <- 
-  meta_dat %>% 
-  mutate(number=1:nrow(meta_dat)) %>% 
-  filter(condition %in% c("TNBC","HER2"))
-
-her2_TNBC_normal <- 
-  normal %>% 
-  dplyr::select(her2_TNBC_meta_dat$number)
-
-all(rownames(her2_TNBC_meta_dat)==colnames(her2_TNBC_normal))
-
-
-# Luminal A vs Luminal B
-
-luminalA_luminalB_meta_dat <- 
-  meta_dat %>% 
-  mutate(number=1:nrow(meta_dat)) %>% 
-  filter(condition %in% c("LuminalA","LuminalB"))
-
-luminalA_luminalB_normal <- 
-  normal %>% 
-  dplyr::select(luminalA_luminalB_meta_dat$number)
-
-all(rownames(luminalA_luminalB_meta_dat)==colnames(luminalA_luminalB_normal))
-
-
-# Luminal A vs TNBC
-
-luminalA_TNBC_meta_dat <- 
-  meta_dat %>% 
-  mutate(number=1:nrow(meta_dat)) %>% 
-  filter(condition %in% c("LuminalA","TNBC"))
-
-luminalA_TNBC_normal <- 
-  normal %>% 
-  dplyr::select(luminalA_TNBC_meta_dat$number)
-
-all(rownames(luminalA_TNBC_meta_dat)==colnames(luminalA_TNBC_normal))
-
-# Luminal B vs TNBC
-
-luminalB_TNBC_meta_dat <- 
-  meta_dat %>% 
-  mutate(number=1:nrow(meta_dat)) %>% 
-  filter(condition %in% c("LuminalB","TNBC"))
-
-luminalB_TNBC_normal <- 
-  normal %>% 
-  dplyr::select(luminalB_TNBC_meta_dat$number)
-
-all(rownames(luminalB_TNBC_meta_dat)==colnames(luminalB_TNBC_normal))
+# # HER2 vs Luminal B
+#  
+# her2_luminalB_meta_dat <- 
+#   meta_dat %>% 
+#   mutate(number=1:nrow(meta_dat)) %>% 
+#   filter(condition %in% c("LuminalB","HER2"))
+# 
+# her2_luminalB_normal <- 
+#   normal %>% 
+#   dplyr::select(her2_luminalB_meta_dat$number)
+# 
+# all(rownames(her2_luminalB_meta_dat)==colnames(her2_luminalB_normal))
+# 
+# 
+# 
+# # HER2 vs TNBC
+# 
+# her2_TNBC_meta_dat <- 
+#   meta_dat %>% 
+#   mutate(number=1:nrow(meta_dat)) %>% 
+#   filter(condition %in% c("TNBC","HER2"))
+# 
+# her2_TNBC_normal <- 
+#   normal %>% 
+#   dplyr::select(her2_TNBC_meta_dat$number)
+# 
+# all(rownames(her2_TNBC_meta_dat)==colnames(her2_TNBC_normal))
+# 
+# 
+# # Luminal A vs Luminal B
+# 
+# luminalA_luminalB_meta_dat <- 
+#   meta_dat %>% 
+#   mutate(number=1:nrow(meta_dat)) %>% 
+#   filter(condition %in% c("LuminalA","LuminalB"))
+# 
+# luminalA_luminalB_normal <- 
+#   normal %>% 
+#   dplyr::select(luminalA_luminalB_meta_dat$number)
+# 
+# all(rownames(luminalA_luminalB_meta_dat)==colnames(luminalA_luminalB_normal))
+# 
+# 
+# # Luminal A vs TNBC
+# 
+# luminalA_TNBC_meta_dat <- 
+#   meta_dat %>% 
+#   mutate(number=1:nrow(meta_dat)) %>% 
+#   filter(condition %in% c("LuminalA","TNBC"))
+# 
+# luminalA_TNBC_normal <- 
+#   normal %>% 
+#   dplyr::select(luminalA_TNBC_meta_dat$number)
+# 
+# all(rownames(luminalA_TNBC_meta_dat)==colnames(luminalA_TNBC_normal))
+# 
+# # Luminal B vs TNBC
+# 
+# luminalB_TNBC_meta_dat <- 
+#   meta_dat %>% 
+#   mutate(number=1:nrow(meta_dat)) %>% 
+#   filter(condition %in% c("LuminalB","TNBC"))
+# 
+# luminalB_TNBC_normal <- 
+#   normal %>% 
+#   dplyr::select(luminalB_TNBC_meta_dat$number)
+# 
+# all(rownames(luminalB_TNBC_meta_dat)==colnames(luminalB_TNBC_normal))
 ```  
 
 각 비교할 type들의 유전자 쌍별로 데이터를 분리하여 DESeq2모형에 넣을 계획이다.  
@@ -657,46 +658,46 @@ dds_HER2_luminalA <-
 dds_HER2_luminalA <- estimateSizeFactors(dds_HER2_luminalA)
 
 
-# HER2 vs LuminalB
-dds_HER2_luminalB <- 
-  DESeqDataSetFromMatrix(countData = her2_luminalB_normal,
-                         colData = her2_luminalB_meta_dat,
-                         design = ~ condition)
-dds_HER2_luminalB <- estimateSizeFactors(dds_HER2_luminalB)
-
-
-# HER2 vs TNBC
-dds_HER2_TNBC <- 
-  DESeqDataSetFromMatrix(countData = her2_TNBC_normal,
-                         colData = her2_TNBC_meta_dat,
-                         design = ~ condition)
-dds_HER2_TNBC <- estimateSizeFactors(dds_HER2_TNBC)
-
-
-# LuminalA vs LuminalB
-dds_luminalA_luminalB <- 
-  DESeqDataSetFromMatrix(countData = luminalA_luminalB_normal,
-                         colData = luminalA_luminalB_meta_dat,
-                         design = ~ condition)
-dds_luminalA_luminalB <- estimateSizeFactors(dds_luminalA_luminalB)
-
-
-
-# LuminalA vs TNBC
-dds_luminalA_TNBC <- 
-  DESeqDataSetFromMatrix(countData = luminalA_TNBC_normal,
-                         colData = luminalA_TNBC_meta_dat,
-                         design = ~ condition)
-dds_luminalA_TNBC <- estimateSizeFactors(dds_luminalA_TNBC)
-
-
-
-# LuminalB vs TNBC
-dds_luminalB_TNBC <- 
-  DESeqDataSetFromMatrix(countData = luminalB_TNBC_normal,
-                         colData = luminalB_TNBC_meta_dat,
-                         design = ~ condition)
-dds_luminalB_TNBC <- estimateSizeFactors(dds_luminalB_TNBC)
+# # HER2 vs LuminalB
+# dds_HER2_luminalB <- 
+#   DESeqDataSetFromMatrix(countData = her2_luminalB_normal,
+#                          colData = her2_luminalB_meta_dat,
+#                          design = ~ condition)
+# dds_HER2_luminalB <- estimateSizeFactors(dds_HER2_luminalB)
+# 
+# 
+# # HER2 vs TNBC
+# dds_HER2_TNBC <- 
+#   DESeqDataSetFromMatrix(countData = her2_TNBC_normal,
+#                          colData = her2_TNBC_meta_dat,
+#                          design = ~ condition)
+# dds_HER2_TNBC <- estimateSizeFactors(dds_HER2_TNBC)
+# 
+# 
+# # LuminalA vs LuminalB
+# dds_luminalA_luminalB <- 
+#   DESeqDataSetFromMatrix(countData = luminalA_luminalB_normal,
+#                          colData = luminalA_luminalB_meta_dat,
+#                          design = ~ condition)
+# dds_luminalA_luminalB <- estimateSizeFactors(dds_luminalA_luminalB)
+# 
+# 
+# 
+# # LuminalA vs TNBC
+# dds_luminalA_TNBC <- 
+#   DESeqDataSetFromMatrix(countData = luminalA_TNBC_normal,
+#                          colData = luminalA_TNBC_meta_dat,
+#                          design = ~ condition)
+# dds_luminalA_TNBC <- estimateSizeFactors(dds_luminalA_TNBC)
+# 
+# 
+# 
+# # LuminalB vs TNBC
+# dds_luminalB_TNBC <- 
+#   DESeqDataSetFromMatrix(countData = luminalB_TNBC_normal,
+#                          colData = luminalB_TNBC_meta_dat,
+#                          design = ~ condition)
+# dds_luminalB_TNBC <- estimateSizeFactors(dds_luminalB_TNBC)
 ```
 
 ```{r eval=FALSE}
@@ -721,7 +722,9 @@ load("D:/Jae Kwan/4학년여름/연구생/연구주제/dds_her2_luminalA객체.R
 
 
 
-## HER2 vs Luminal A
+## HER2 vs Luminal A  
+
+쌍별 유전자 차이에 대한 검정을 하나만 예로 실행해보자.  
 
 ```{r}
 result_HER2_luminalA <- 
@@ -820,16 +823,6 @@ MA plot은 expression change와 condition의 차이에 대한 관계(log ratio, 
 >분석 화학 또는 생물 의학에서의 Bland-Altman plot(difference plot)은 서로 다른 두 분석 사이의 합치를 분석하는 데 사용되는 data plotting 방법이다.  
 다른 분야에서 알려진 이름인 Tukey mean-difference plot과 동일하지만, Martin Bland와 Douglas G.Altman에 의해 의료 통계에 대중화되었다.  
 
-```{r}
-# plotCounts(dds_HER2_luminalA,
-#            gene=which.min(result_HER2_luminalA$padj),
-#            intgroup="condition")
-```  
-
-비록 한번에 많은 (또는 모든) 유전자를 그려내는 것이 도움이 되긴 하지만, 특정 유전자에 대한 count가 어떻게 변화하는지 보는 것도 좋다.  
-
-가장 유의한 차이를 보이는 유전자에 대한 그림이다.  
-
 
 ```{r}
 p1 + p2
@@ -848,49 +841,10 @@ Volcano plot : Log-scaled fold-change를 X축, -Log-scaled P-value를 Y축으로
 
 
 
-## HER2 vs Luminal B
-
-```{r}
-
-```
-
-## HER2 vs TNBC
-
-```{r}
-
-```  
-
-## Luminal A vs Luminal B
-
-```{r}
-
-```  
-
-## Luminal A vs TNBC
-
-```{r}
-
-```  
-
-## Luminal B vs TNBC
-
-```{r}
-
-```  
-
-
-# Classification  
-
-## ??  
-
-```{r}
-
-```
 
 
 
-
-# 필요없는것 모아둠
+# 필요없는것  
 
 limma, DEseq 또는 DESeq2패키지로 유전자 발현에 대한 차이를 분석할 수 있다.  
 
@@ -929,11 +883,11 @@ limma, DEseq 또는 DESeq2패키지로 유전자 발현에 대한 차이를 분�
 ```  
 
 ```{r}
-# 유전자 이름? 어디 쓰는거지 이름이 TCGA랑 다름 
+# 유전자 이름? 이름이 TCGA랑 다름 
 # devtools::install_github("stephenturner/annotables")
 
 # library(annotables)
-```
+```  
 
 
 
