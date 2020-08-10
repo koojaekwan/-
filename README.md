@@ -4,4 +4,6 @@
 
 [breast cancer 프로젝트](https://koojaekwan.github.io/Researcher_undergraduated/breast.html)  
 
-[gene plot](https://koojaekwan.github.io/Researcher_undergraduated/gene_plot.html)
+[gene plot](https://koojaekwan.github.io/Researcher_undergraduated/gene_plot.html)  
+
+[keras example in subtype classification](https://koojaekwan.github.io/Researcher_undergraduated/keras_example_R.html)  
