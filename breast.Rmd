@@ -62,7 +62,7 @@ This cancer develops in the breast milk-producing lobules or glands.
 [breast cancer 설명 출처](https://www.bebig.com/home/patients/breast_cancer/)  
 [TCGA's Study of Breast Ductal Carcinoma](https://www.cancer.gov/about-nci/organization/ccg/research/structural-genomics/tcga/studied-cancers/breast-ductal)  
 
-# 생각해 볼 내용  
+# 관련자료  
 
 
 ## Paper {.tabset .tabset-fade .tabset-pills}  
@@ -194,19 +194,19 @@ DESeq2패키지로 분석이 가능
 
 **content below tabbed region**
 
-## 생각한 조합  
+## 나의 생각?  
 
 1. mRNA데이터를 통해 유방암 subtype들의 different expression gene을 분석  
 
-2. 단일적으로 tumor, normal에 대해 QC이 후, DEG를 수행하고 해석하는 것도 나쁘지 않다.  
+2. tumor 4가지의 subtype에 대한 QC이 후, DEG를 수행하고 해석도 고려  
 
-tumor, normal을 분류하는 모형을 구축함에 있어서 DEG를 통해 발현적으로 유의한 gene들만 선택하는 등 feature selection에 이용할 수도 있을 것  
+tumor의 subtype을 분류하는 모형을 구축함에 있어서 DEG나 다른 방법을 통해 발현적으로 유의한 gene들만 선택하는 등 feature selection에 이용할 수도 있을 것  
 
 ------------  
 
-
--> 유방암 subtype들의 쌍별로 DEG수행  
-subtype들의 분류?  
+* subtype의 DEG수행 후 특징살피기  
+* 유방암 subtype에 영향을 미치는 유전자 탐색  
+* 이 유전자로부터 subtype들의 분류  
 
 
 <br>
@@ -844,7 +844,7 @@ Volcano plot : Log-scaled fold-change를 X축, -Log-scaled P-value를 Y축으로
 
 
 
-# 필요없는것  
+# 연구와는 무관한 필요없는 내용  
 
 limma, DEseq 또는 DESeq2패키지로 유전자 발현에 대한 차이를 분석할 수 있다.  
 

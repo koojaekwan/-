@@ -2964,8 +2964,8 @@ This cancer develops in the breast milk-producing lobules or glands.</p>
 </div>
 </div>
 </div>
-<div id="생각해-볼-내용" class="section level1">
-<h1>생각해 볼 내용</h1>
+<div id="관련자료" class="section level1">
+<h1>관련자료</h1>
 <div id="paper" class="section level2 tabset tabset-fade tabset-pills">
 <h2 class="tabset tabset-fade tabset-pills">Paper</h2>
 <p><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6471546/#B33-genes-10-00200">Classifying Breast Cancer Subtypes Using Multiple Kernel Learning Based on Omics Data</a></p>
@@ -3074,16 +3074,21 @@ DESeq2패키지로 분석이 가능</p>
 <h2></h2>
 <p><strong>content below tabbed region</strong></p>
 </div>
-<div id="생각한-조합" class="section level2">
-<h2>생각한 조합</h2>
+<div id="나의-생각" class="section level2">
+<h2>나의 생각?</h2>
 <ol style="list-style-type: decimal">
 <li><p>mRNA데이터를 통해 유방암 subtype들의 different expression gene을 분석</p></li>
-<li><p>단일적으로 tumor, normal에 대해 QC이 후, DEG를 수행하고 해석하는 것도 나쁘지 않다.</p></li>
+<li><p>tumor 4가지의 subtype에 대한 QC이 후, DEG를 수행하고 해석도 고려</p></li>
 </ol>
-<p>tumor, normal을 분류하는 모형을 구축함에 있어서 DEG를 통해 발현적으로 유의한 gene들만 선택하는 등 feature selection에 이용할 수도 있을 것</p>
+<p>tumor의 subtype을 분류하는 모형을 구축함에 있어서 DEG나 다른 방법을 통해 발현적으로 유의한 gene들만 선택하는 등 feature selection에 이용할 수도 있을 것</p>
 <hr />
-<p>-&gt; 유방암 subtype들의 쌍별로 DEG수행<br />
-subtype들의 분류?</p>
+<ul>
+<li>subtype의 DEG수행 후 특징살피기<br />
+</li>
+<li>유방암 subtype에 영향을 미치는 유전자 탐색<br />
+</li>
+<li>이 유전자로부터 subtype들의 분류</li>
+</ul>
 <p><br> <br></p>
 </div>
 </div>
@@ -3836,8 +3841,8 @@ P-value : 두 군의 평균발현량 차이가 통계적으로 유의미한 값�
 오른쪽 그림은 왼쪽 전체그림 중 중요한 부분만 확대하여 확인한 것</p>
 </div>
 </div>
-<div id="필요없는것" class="section level1">
-<h1>필요없는것</h1>
+<div id="연구와는-무관한-필요없는-내용" class="section level1">
+<h1>연구와는 무관한 필요없는 내용</h1>
 <p>limma, DEseq 또는 DESeq2패키지로 유전자 발현에 대한 차이를 분석할 수 있다.</p>
 <pre class="r"><code># str_locate(dataBRCA %&gt;% names, &quot;\\d\\dA&quot;)
 
