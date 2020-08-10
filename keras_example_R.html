@@ -1746,6 +1746,21 @@ tensorflow역시 마찬가지이다. <code>devtools::install_github(&quot;rstudi
 <a href="https://mrchypark.github.io/post/conda4r-r%EC%9D%84-%EC%9C%84%ED%95%B4%EC%84%9C-conda%EB%A5%BC-%EC%84%A4%EC%B9%98%ED%95%B4%EB%B3%B4%EC%9E%90/">(conda4r) R을 위해서 conda를 설치해보자</a></p>
 <div id="my-method" class="section level3">
 <h3>My method</h3>
+<pre class="r"><code>remotes::install_github(&quot;mrchypark/multilinguer&quot;)
+multilinguer::install_conda()
+
+
+install.packages(&quot;reticulate&quot;)
+reticulate::install_miniconda()
+library(reticulate)
+
+
+
+library(multilinguer)
+# has_conda()
+
+remotes::install_github(&quot;haven-jeon/KoSpacing&quot;)
+devtools::install_github(&quot;nathan-russell/hashmap&quot;)</code></pre>
 <p>KoSpacing을 하기 위한 작업이다.(이 패키지에 대한 소개는 블로그를 참조)<br />
 혹시 대비해서 Anaconda Navigator에서도 Rstudio를 설치했다.</p>
 <pre class="r"><code>library(KoSpacing)

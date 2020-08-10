@@ -58,22 +58,22 @@ tensorflow역시 마찬가지이다. `devtools::install_github("rstudio/tensorfl
 
 ### My method  
 
-```{r, echo=FALSE, eval=TRUE}
-# remotes::install_github("mrchypark/multilinguer")
-# multilinguer::install_conda()
-# 
-# 
-# install.packages("reticulate")
-# reticulate::install_miniconda()
-# library(reticulate)
-# 
-# 
-# 
-# library(multilinguer)
-# # has_conda()
-# 
-# remotes::install_github("haven-jeon/KoSpacing")
-# devtools::install_github("nathan-russell/hashmap")
+```{r}
+remotes::install_github("mrchypark/multilinguer")
+multilinguer::install_conda()
+
+
+install.packages("reticulate")
+reticulate::install_miniconda()
+library(reticulate)
+
+
+
+library(multilinguer)
+# has_conda()
+
+remotes::install_github("haven-jeon/KoSpacing")
+devtools::install_github("nathan-russell/hashmap")
 ```  
 
 KoSpacing을 하기 위한 작업이다.(이 패키지에 대한 소개는 블로그를 참조)  
