@@ -1,0 +1,309 @@
+---
+title: "Keras Example : Subtype Classification"
+author: "Jae Kwan Koo"
+output:
+  html_document:
+    df_print: paged
+    code_folding: show
+    fig_height: 6
+    fig_width: 10
+    highlight: textmate
+    toc: no
+    toc_depth: 4
+    toc_float: yes
+  word_document: default
+  github_document:
+    toc: yes
+    toc_depth: 4
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, eval = F)
+```  
+
+## Library  
+
+```{r message=F, warning=F}
+library(data.table)
+library(tidyverse)
+
+library(caret)
+library(keras)
+library(tensorflow)
+```  
+
+## Install Keras in r (windows)  
+
+**Keras는 Python으로 구현된 쉽고 간결한 딥러닝 라이브러리이다.**  
+
+[케라스 이야기 - 깃헙 블로그](https://tykimos.github.io/2017/01/27/Keras_Talk/)  
+
+<br>
+
+
+먼저 **Anaconda**를 설치하고, `devtools::install_github("rstudio/keras")`를 통해 keras를 설치한다.  
+tensorflow역시 마찬가지이다. `devtools::install_github("rstudio/tensorflow")`  
+
+<br>
+
+이후, library(keras), library(tensorflow)불러온뒤, `install_tensorflow()`를 통해 설치하면 끝이 난다.  
+
+꽤 쉬운 설치방법이라 생각했지만, error를 마주치게 된다면 여기서 밑의 방법을 써보자.  
+며칠을 고생한 뒤 에러가 나지 않는 방법으로 설치를 성공했다.  
+
+-----------
+
+박찬엽님의 블로그 글을 참조했다.  
+[(conda4r) R을 위해서 conda를 설치해보자](https://mrchypark.github.io/post/conda4r-r%EC%9D%84-%EC%9C%84%ED%95%B4%EC%84%9C-conda%EB%A5%BC-%EC%84%A4%EC%B9%98%ED%95%B4%EB%B3%B4%EC%9E%90/)  
+
+### My method  
+
+```{r, echo=FALSE, eval=TRUE}
+# remotes::install_github("mrchypark/multilinguer")
+# multilinguer::install_conda()
+# 
+# 
+# install.packages("reticulate")
+# reticulate::install_miniconda()
+# library(reticulate)
+# 
+# 
+# 
+# library(multilinguer)
+# # has_conda()
+# 
+# remotes::install_github("haven-jeon/KoSpacing")
+# devtools::install_github("nathan-russell/hashmap")
+```  
+
+KoSpacing을 하기 위한 작업이다.(이 패키지에 대한 소개는 블로그를 참조)  
+혹시 대비해서 Anaconda Navigator에서도 Rstudio를 설치했다.  
+
+```{r}
+library(KoSpacing)
+library(reticulate)
+packageVersion("KoSpacing")
+
+
+
+KoSpacing::set_env()
+
+spacing("김형호영화시장분석가는'1987'의네이버영화정보네티즌10점평에서언급된단어들을지난해12월27일부터올해1월10일까지통계프로그램R과KoNLP패키지로텍스트마이닝하여분석했다.")
+
+
+# install_tensorflow()
+
+# reticulate::conda_version()
+# reticulate::conda_list()
+```  
+![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/using_keras/image1.png)  
+
+
+나도 모르게 곧바로 set_env()를 실행하고 진행하면 에러가 나서, 띄워쓰기 함수를 한번 실행했어야 했다.(아마 keras, tensorflow를 백앤드로 사용한 것이라고 이해하고 있다.)  
+set_env()를 통해 환경세팅을 해준뒤, keras패키지의 함수들은 정상적으로 돌아갔다.(나의 경우)  
+
+결론적으로 설치가 완료되었다.(안정적인 방법은 더 찾고 있다)  
+MNIST를 불러오면서 확인을 함과 동시에 example을 진행해보면 좋을 것이다.  
+
+밑의 예제는 유방암의 4가지 아형분류에 대한 예제를 keras를 이용하여 진행해보려고 한다.  
+
+<br>
+<br>
+
+
+
+
+
+
+## Data  
+
+```{r}
+data <- fread("mrna.csv", data.table = F)
+meta_dat <- fread("meta_dat.csv", header = T,data.table = F)
+
+
+rownames(data) <- data$V1
+data$V1 <- NULL
+rownames(meta_dat) <- meta_dat$V1
+meta_dat$V1 <- NULL
+```  
+
+물론 tibble::rownames_to_columns()함수도 유용하게 사용될 수 있다.  
+
+```{r}
+data_mat <- as.matrix(data)
+
+dimnames(data_mat) <- NULL
+```  
+
+## Data Partition  
+
+```{r}
+set.seed(100)
+
+index <- createDataPartition(1:630, p = 0.8, list = F)
+
+train_x <- data_mat[index,]
+train_y <- meta_dat[index,] 
+
+test_x <- data_mat[-index,]
+test_y <- meta_dat[-index,]
+```  
+
+seed를 박아서 재현성을 유지한다.  
+
+```{r}
+train_x %>% class; train_y %>% class
+test_x %>% class; test_y %>% class
+```  
+
+![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/using_keras/image2.png)  
+
+## One-hot encoding  
+
+```{r}
+# HER2 Luminal A LuminalB TNBC
+as.numeric(as.factor(train_y))[1:20]
+
+
+
+# One-hot encoding : training labels
+train_y_labels <- to_categorical(as.numeric(as.factor(train_y))-1)
+
+# One-hot encoding : validation labels
+test_y_labels <- to_categorical(as.numeric(as.factor(test_y))-1)
+
+
+train_y_labels %>% head
+test_y_labels %>% head
+```  
+
+![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/using_keras/image3.png)  
+
+0아니면 1으로 만들어주기 위해 -1을 한다.  
+
+
+## Model  
+
+```{r}
+use_session_with_seed(100)
+
+# initial model
+model <- keras_model_sequential()
+
+
+# add the layer
+
+# 96 inputs(independent var) -> [30 hidden nodes] -> 
+# [[30 hidden nodes]] -> 4 outputs
+
+model %>% 
+  layer_dense(units = 30, activation = 'relu', input_shape = c(96)) %>% 
+  layer_dropout(rate = 0.5) %>% 
+  layer_dense(units = 30, activation = 'relu') %>%
+  layer_dense(units = 4, activation = 'softmax')
+
+
+
+# inspect the model
+summary(model)
+
+
+# compile the model
+model %>% compile(
+  loss = 'categorical_crossentropy',
+  optimizer = 'adam',
+  metrics = 'accuracy'
+)
+
+
+
+history <- model %>% fit(
+  train_x, 
+  train_y_labels, 
+  epochs = 30,
+  batch_size = 2,
+  validation_split = 0.2
+)
+```  
+
+![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/using_keras/image4.png)  
+
+<br>
+
+![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/using_keras/image5.png)  
+
+모델의 정보, 훈련과정을 확인가능하다. 훈련과정 일부만 사진으로 들고왔다.  
+input shape에서 96은 투입되는 feature갯수를 의미한다.  
+첫번째 hidden layer에 node는 30개, 두번째 hidden layer에 node도 30개로 설정했다.  
+relu함수와 drop out에 대해서는 링크를 참조하자.  
+
+<br>
+
+![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/using_keras/image6.png)  
+
+
+
+```{r}
+plot(history)
+```  
+
+
+![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/using_keras/image7.png)  
+
+어느 epoch시점부터 과적합이 일어나고 있다.  
+과적합의 조짐이 일어나기 전에 훈련을 stop 하는방법 등을 더 찾아봐야겠다.  
+
+## Evaluation  
+
+```{r}
+model %>% evaluate(test_x, test_y_labels)
+  
+model %>% predict_classes(test_x)
+
+
+
+
+table(prediction = model %>% predict_classes(test_x),
+      actual = as.numeric(as.factor(test_y))-1)
+```  
+
+![](D:/Jae Kwan/4학년여름/연구생/연구주제/gene_boxplot/using_keras/image8.png)  
+
+유방암 subtype을 분류하는 이전에 적합했던 기계학습 모형(Random Forest)과 비교해서 확인해볼 수 있다.  
+
+다음에는 더 이해할 수 있는 공부를 해볼예정이다.  
+
+
+<br>
+<br>
+
+## Reference  
+
+[dropout - Dive into Deep Learning (책)](https://ko.d2l.ai/chapter_deep-learning-basics/dropout.html)  
+
+[Relu - tstory blog](https://pythonkim.tistory.com/40)  
+[신경망이란 무엇인가? - 3Blue1Brown](https://www.youtube.com/watch?v=aircAruvnKk)  
+
+[optimizor - tstory blog](https://nittaku.tistory.com/271)  
+
+------------
+
+<br>
+
+[배치사이즈와 에포크](https://tykimos.github.io/2017/03/25/Fit_Talk/)  
+[keras : Deep Learning in R (DataCamp)](https://www.datacamp.com/community/tutorials/keras-r-deep-learning)  
+[Binary Classification using Keras in R](https://heartbeat.fritz.ai/binary-classification-using-keras-in-r-ef3d42202aaa)  
+
+
+
+
+
+
+
+
+
+
+
+
+
