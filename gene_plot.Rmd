@@ -44,6 +44,7 @@ library(plotROC) # plot the ROC curve
 library(pROC)
 library(patchwork)
 ```  
+
 ```{r echo=FALSE}
 load("D:/Jae Kwan/4학년여름/연구생/연구주제/glm_model_gridsearch.RData")
 ```  
@@ -54,6 +55,7 @@ load("D:/Jae Kwan/4학년여름/연구생/연구주제/glm_model_gridsearch.RDat
 doParallel::registerDoParallel(3)
 ```  
 
+caret패키지의 모형개발 속도 향상을 위해 병렬처리를 이용한다.  
 
 ## One hot encoding  
 
@@ -62,6 +64,8 @@ one_hot_meta_dat <- model.matrix(~.-1, meta_dat)
 colnames(one_hot_meta_dat) <- one_hot_meta_dat %>% colnames %>% 
   str_remove(.,"condition")
 ```  
+
+glmnet함수는 y label값을 수치로 받기 때문에 인코딩을 하는  것이 좋다.  
 
 ## GLM  
 
@@ -81,8 +85,14 @@ cancer_fit <- glmnet(x = normal_t,
 # plot(cancer_fit)
 ```  
 
- 
+기존의 전처리된 형태의 데이터에 대해 유전자가 열로, 환자는 행으로 위치시킨다.  
+Ridge regression은 일반적으로 변수들의 서브셋만을 포함하는 모델들을 선택하는 최상의 부분집합 선택과 전진 및 후진 단계적 선택과 달리, Ridge는 최종 모델에 p개 설명변수 모두를 포함할 것이다.(regularized parameter가 inf가 아니면 정확히 0으로 만들 수 없다.)  
 
+Lasso는 이러한 Ridge의 단점을 극복한 기법이다.  
+ridge와 같이 lasso는 계수 추정치들을 0으로 수축하지만, lasso에서 $l_1$ penalty는 hyperparameter lambda가 충분히 클 경우 계수 추정치들의 일부를 정확히 0이 되게 하는 효과를 가진다.  
+**따라서, 최상의 부분집합 선택처럼 lasso는 변수 선택을 수행한다.**  
+
+그 결과 lasso로부터 생성된 모델은 ridge regression에 의해 생성된 것보다 일반적으로 해석하기 훨씬 더 쉽다.  
 
 
 ### CV  
@@ -111,6 +121,11 @@ cv_fit$lambda.1se
 cv_fit$lambda.min
 ```  
 
+알맞은 lambda를 정해주기 위해 cross validation을 수행한다.  
+cv.glmnet은 기본옵션으로 10-fold이다.  
+
+[R documentation - cv.glmnet](https://www.rdocumentation.org/packages/glmnet/versions/4.0-2/topics/cv.glmnet)  
+
 
 ## Coefficients  
 
@@ -135,6 +150,16 @@ k1 %>%
   left_join(k3, by = "name") %>% 
   left_join(k4, by = "name")
 ```  
+
+이전에 만든 glmnet모형에 `s = `으로 원하는 lambda를 설정할 수 있다.  
+다음과 같은 방법으로 4개의 subtype에 대한 coefficient를 뽑아낸다.  
+여기있는 유전자들은 4개의 subtype에 하나라도 영향을 미치는 유전자라고 생각할 수 있을 것이다.  
+
+<br>
+
+물론 cv.glmnet에서 정한 lambda를 통해 새 모형을 만들면 `beta()`함수로 coefficient를 쉽게 뽑아낼 수도 있을 것이다.  
+
+
 
 ## normalized count & gene condition  
 
@@ -170,6 +195,23 @@ sig_gene <- sig_gene %>% left_join(meta_dat %>% rownames_to_column("name"), by =
 
 colnames(sig_gene)
 ```  
+
+각 유전자별로 normalization을 수행한다.  
+
+<Definition>  
+Normalization is a process designed to identify and correct technical biases removing the least possible biological signal. This step is technology and platform-dependant.  
+
+
+**Library size**, **genes length**는 실험에서 편향을 가져올 수 있다.  
+
+
+* `genes length` : The raw count of two genes cannot be face off if gene A is twice longer than gene B. Due to its length, the longest gene will have much chance to be sequenced than the short one. And in the end, for the same expression level, the longest gene will get more read than the shortest one  
+
+* `library size` : the most well know bias. You create two libraries for two conditions with the same RNA composition. The second library works way better than the first one, you got 12 000 000 reads for condition A and 36 000 000 reads for condition B. You will have three times (36 000 000/12 000 000 = 3) more of each RNA in your condition B than your condition A.  
+
+
+다른 library size로 인해 한 sample이 다른 sample에 비해 더 많은 판독 값이 유전자에 정렬될 수 있다.  
+
 
 ## Graph  
 
@@ -209,6 +251,11 @@ work_temp %>%
   scale_x_discrete(guide = guide_axis(n.dodge = 2))
 ```  
 
+4개의 subtype중 하나라도 영향을 미치는 유전자 중 10개에 대해 나타낸 시각화이다.  
+
+<br>
+
+이제 4개의 유방암 아형을 classify하는 모형을 구축해보기로 한다.  
 
 
 ## Feature Selection with LASSO  
@@ -259,6 +306,10 @@ new1 %>%
 selected_dat <- selected_dat[-1,] # delete intercept row
 ```  
 
+이전에 영향을 미치는 유전자를 찾을때보다는 덜 엄격하게 lambda를 잡아 유전자 변수들이 조금 더 많이 선택될 수 있게 했다.  
+
+여기서 정하게 된 lambda의 기준점은 cv.glmnet()에서 도출된 Lasso모형의 lambda minimun과 lambda first standard error의 차이만큼 lambda minimun을 중심으로 반대로 이동한 lambda의 값(lambda minimum - (lambda first se - lambda min)을 취하였다.  
+
 ## PCA with selected Genes  
 
 ```{r}
@@ -304,6 +355,9 @@ ggplot(pca_obj,aes(x=PC1,y=PC2, color=meta_dat$condition)) +
   labs(color='Subtype') 
 ```  
 
+정해진 유전자들을 PCA로 살펴보자  
+이전에 37600개를 모두 사용한 것보다 더 잘 분리될 것 같다.  
+
 ## Boruta feature selection  
 
 ```{r}
@@ -321,6 +375,49 @@ boruta_results <- Boruta(condition ~ .,
 boruta_results$finalDecision %>% data.frame %>% table
 plot(boruta_results, las = 1, xaxt='n')
 ```  
+
+덜 엄격하게 정해진 유전자변수들로부터 한번 더 걸러내는 작업을 가졌다.  
+
+<br>
+
+많은 변수들을 가지는 고차원 데이터는 기계학습문제에서 요즘 증가하는 추세이다. 이 큰 데이터로부터 유용한 정보를 추출하기 위해, 우리는 noise, redundant를 줄이기 위해 통계적 테크닉을 사용해야 한다.  
+왜냐하면, 우리는 모형을 훈련시키기 위해 우리의 처리에서 모든 변수들을 사용하지는 않을 것이기 때문인데, 여기서 **Feature Selection**이 중요한 역할을 한다.  
+
+모형 훈련을 더 빠르게 해주고 모형의 복잡도를 낮춰 더 쉽게 이해할 수 있고, accuracy, precision, recall등 모형 평가의 척도를 향상시킬 수 있다.  
+
+
+<br>
+
+<Boruta algorithm>  
+
+Boruta는 데이터 셋에서 변수들의 중요성에 대한 것들을 요청한다.  
+많든 변수들은 중요한지, 안중요한지, 잠정적인지 분류가 된다.  
+
+Tentative features들은 그들의 shadow features라는 것에 가까운 특성을 가져, random forest 실행횟수로는 확신있게 중요한 변수인지 아닌지 결정할 수 없는 변수들을 말한다.  
+
+`maxRuns = `를 증가시킴에 따라 tentative features이 남아있는지 여부를 고려할 수 있다.  
+
+rf 분류자는 out of bag error의 값이 최소화되는 곳에서 수렴한다.  
+
+X축은 변수들을 나타내고, Y축은 섞인 데이터에서 모든 변수들의 Z-score가 위치해 변수의 중요도를 나타낸다.  
+
+
+
+<br>
+
+
+* out of bag error : an estimate to measure prediction error of the classifiers which uses bootstrap aggregation to sub sample data samples used for training.  
+
+* 보루타 알고리즘은 filter method보다 더 많은 연산이 요구되는 wrapper method알고리즘이다.  
+
+* Boruta알고리즘은 rf를 구현한 wrapper이다.  
+
+* rf algorithm에서는 평균과 표준편차를 이용한 z score를 활용하지 않는데, 분포가 normal(0,1)을 따르지 않으므로 변수 중요성에 대한 통계적 유의성과 직접적인 관련이 없기 때문이다.  
+
+* Boruta algorithm은 rf내의 tree에서 평균 정확도 손실의 fluctuation을 고려하기 위해 중요성을 측정할 때 z-score을 사용한다.  
+
+
+
 
 ## Data  
 
@@ -350,8 +447,10 @@ train_y <- meta_dat[index,]
 
 test_x <- data[-index,]
 test_y <- meta_dat[-index,]
-```
+```  
 
+train과 test의 비율을 80대 20으로 분리한다.  
+caret::createDataPartition은 기본적으로 각 클래스별 층화추출을 수행한다.  
 
 ## Imbalance Data  
 
@@ -363,6 +462,13 @@ prop.table(table(test_y))
 table(train_y)
 ```  
 
+각 클래스에서 비슷한 갯수들로 추출됨을 확인  
+LuminalA가 극히 많은 Imbalance data이다.  
+
+original 데이터와 3개의 sampling method을 실행한 데이터와의 모형을 적합해 확인해보도록 한다.   
+
+sampling method별로 비교할 것이므로 모두 rf모형을 사용했고, tree갯수는 400으로 고정시켰다. mtry만 Grid Search로 탐색하였다.  
+10-fold 3 repeat cross validation을 수행  
 
 ## Classification without sampling method  
 
@@ -441,6 +547,8 @@ sampling_smote <- SMOTE(class~.,
                         perc.under = 300,
                         k = 5)
 ```  
+
+비율은 경험적으로 선택하였다.  
 
 ```{r}
 train_y %>% table
@@ -531,6 +639,23 @@ breast_resampling <- resamples(breast_models)
 bwplot(breast_resampling)
 ```  
 
+Setting the seed produces paired samples and enables the two models to be compared using the resampling technique described in Hothorn at al, "The design and analysis of benchmark experiments", Journal of Computational and Graphical Statistics(2005)  
+
+<br>
+
+$$
+\kappa = {P(a)-P(e) \over 1- P(e)}
+$$  
+P(e) : expected accuracy  
+P(a) : observed accuracy  
+
+즉, 실제 정확도와 예측된 정확도를 구분지어 위의 식으로 구한 수치가 Kappa 통계량이다.  
+
+Kappa 통계량은 -1부터 1까지의 값을 가지는데, 0의 값을 가지게 되면 관측된 클래스와 예측된 클래스 사이의 합의점이 전혀 없음을 의미한다.  
+결론적으로 Kappa값이 클수록 좋다.  
+
+
+
 
 
 ## Accuracy  
@@ -593,6 +718,35 @@ ggplot(rf_train_smote) + theme(legend.position = "right",
 
 p1+p2+p3+p4
 ```  
+
+```{r}
+grid_data <- data.frame(rf_train$results[1:2],
+                        rf_train_over$results[1:2],
+                        rf_train_under$results[1:2],
+                        rf_train_smote$results[1:2])
+ 
+ggplot(grid_data, aes(x = mtry)) + 
+  geom_point(aes(y = Accuracy, colour = "Original Data")) + 
+  geom_line(aes(y = Accuracy, colour = "Original Data")) + 
+  
+  geom_point(aes(y = Accuracy.1, colour = "Oversampling Data")) +
+  geom_line(aes(y = Accuracy.1, colour = "Oversampling Data")) + 
+    
+  geom_point(aes(y = Accuracy.2, colour = "Undersampling Data")) +
+  geom_line(aes(y = Accuracy.2, colour = "Undersampling Data")) + 
+    
+  geom_point(aes(y = Accuracy.3, colour = "SMOTE Data")) +
+  geom_line(aes(y = Accuracy.3, colour = "SMOTE Data")) + 
+  
+  
+  
+  scale_x_continuous(breaks=seq(0,20,4)) +
+  scale_y_continuous(breaks=seq(0.85,1,0.02)) + 
+  theme(legend.title=element_blank(),
+        legend.position = "bottom") + 
+  ggtitle("Grid Search for sampling methods")
+```  
+
 
 
 ## Multiclass ROC CURVE  
@@ -672,4 +826,16 @@ sapply(2:length(original_rs),function(i) lines.roc(original_rs[[i]],col=i))
 text(0,0.2,labels=glue("AUC : {round(original_roc$auc,4)}"),
      col="red")
 ```  
+
+<br>
+<br>
+
+
+## Reference  
+
+[multiclass ROC curve](https://stackoverflow.com/questions/34169774/plot-roc-for-multiclass-roc-in-proc-package)  
+
+[Boruta algorithm](https://www.datacamp.com/community/tutorials/feature-selection-R-boruta#package)  
+
+
 
